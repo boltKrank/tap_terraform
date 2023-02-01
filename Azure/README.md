@@ -2,4 +2,4 @@
 
 ## Pre-reqs
 
-1. Azure CLI
+1. Azure CLI (`az login` needed before running `terraform apply`)
