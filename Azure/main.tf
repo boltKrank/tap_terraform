@@ -1,14 +1,4 @@
-  # subscription_id   = var.subscription_id
-  # tenant_id         = var.tenant_id
-  # client_id         = var.client_id
-  # client_secret     = var.client_secret
-
-  # source_image_reference {
-  #   publisher = "cabibucak"
-  #   offer     = "UbuntuServer"
-  #   sku       = "20.04-LTS"
-  #   version   = "latest"
-  # }
+# https://github.com/hashicorp/terraform-provider-azurerm
 
 provider "azurerm" {
   features {}
@@ -57,9 +47,9 @@ resource "azurerm_linux_virtual_machine" "main" {
   name                            = "${var.prefix}-vm"
   resource_group_name             = azurerm_resource_group.main.name
   location                        = azurerm_resource_group.main.location
-  size                            = "Standard_F2"
-  admin_username                  = "adminuser"
-  admin_password                  = "P@ssw0rd1234!"
+  size                            = "Standard_B2s"
+  admin_username                  = var.bootstrap_username
+  admin_password                  = var.bootstrap_password
   disable_password_authentication = false
   network_interface_ids = [
     azurerm_network_interface.main.id,
@@ -67,8 +57,8 @@ resource "azurerm_linux_virtual_machine" "main" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "16.04-LTS"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts-gen2"
     version   = "latest"
   }
 
@@ -76,10 +66,31 @@ resource "azurerm_linux_virtual_machine" "main" {
     storage_account_type = "Standard_LRS"
     caching              = "ReadWrite"
   }
+  provisioner "file" {
+    connection {
+      type = "ssh"
+      user = var.bootstrap_username
+      password = var.bootstrap_password
+      host = azurerm_public_ip.main.ip_address
+      agent    = false
+      timeout  = "10m"
+    }
+    source = "${path.cwd}/../binaries/" 
+    destination = "/home/${var.bootstrap_username}" 
+  }
 
   provisioner "remote-exec" {
     inline = [
-      "ls -la /tmp",
+      "cd",
+      "export TANZU_CLI_NO_INIT=true",
+      "mkdir $HOME/tanzu",
+      "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
+      "cd $HOME/tanzu",
+      "export VERSION=v0.25.4",
+      "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
+      "tanzu version",
+      "mkdir $HOME/tanzu-cluster-essentials",
+      "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
     ]
 
     connection {
@@ -89,3 +100,19 @@ resource "azurerm_linux_virtual_machine" "main" {
     }
   }
 }
+
+# Create ACR
+
+# Create AKS
+
+
+# After AKS:
+
+    # inline = [
+    #   "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
+    #   "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
+    #   "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
+    #   "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
+    #   "cd $HOME/tanzu-cluster-essentials",
+    #   "./install.sh --yes",
+    #   ]
