@@ -4,107 +4,140 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "main" {
+resource "azurerm_resource_group" "tap_resource_group" {
   name     = "${var.prefix}-resources"
   location = var.location
 }
 
-resource "azurerm_virtual_network" "main" {
-  name                = "${var.prefix}-network"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-}
+# -------------------------------------- START BOOTSTRAP BOX ---------------------------------------------
 
-resource "azurerm_subnet" "internal" {
-  name                 = "internal"
-  resource_group_name  = azurerm_resource_group.main.name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = ["10.0.2.0/24"]
-}
+# resource "azurerm_virtual_network" "main" {
+#   name                = "${var.prefix}-network"
+#   address_space       = ["10.0.0.0/16"]
+#   location            = azurerm_resource_group.tap_resource_group.location
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+# }
 
-resource "azurerm_public_ip" "main" {
-  name                = "${var.prefix}-pip"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  allocation_method   = "Static"
-}
+# resource "azurerm_subnet" "internal" {
+#   name                 = "internal"
+#   resource_group_name  = azurerm_resource_group.tap_resource_group.name
+#   virtual_network_name = azurerm_virtual_network.main.name
+#   address_prefixes     = ["10.0.2.0/24"]
+# }
 
-resource "azurerm_network_interface" "main" {
-  name                = "${var.prefix}-nic"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+# resource "azurerm_public_ip" "main" {
+#   name                = "${var.prefix}-pip"
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location
+#   allocation_method   = "Static"
+# }
 
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.internal.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.main.id
-  }
-}
+# resource "azurerm_network_interface" "main" {
+#   name                = "${var.prefix}-nic"
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location
 
-resource "azurerm_linux_virtual_machine" "main" {
-  name                            = "${var.prefix}-vm"
-  resource_group_name             = azurerm_resource_group.main.name
-  location                        = azurerm_resource_group.main.location
-  size                            = "Standard_B2s"
-  admin_username                  = var.bootstrap_username
-  admin_password                  = var.bootstrap_password
-  disable_password_authentication = false
-  network_interface_ids = [
-    azurerm_network_interface.main.id,
-  ]
+#   ip_configuration {
+#     name                          = "internal"
+#     subnet_id                     = azurerm_subnet.internal.id
+#     private_ip_address_allocation = "Dynamic"
+#     public_ip_address_id          = azurerm_public_ip.main.id
+#   }
+# }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts-gen2"
-    version   = "latest"
-  }
+# resource "azurerm_linux_virtual_machine" "main" {
+#   name                            = "${var.prefix}-vm"
+#   resource_group_name             = azurerm_resource_group.tap_resource_group.name
+#   location                        = azurerm_resource_group.tap_resource_group.location
+#   size                            = "Standard_B2s"
+#   admin_username                  = var.bootstrap_username
+#   admin_password                  = var.bootstrap_password
+#   disable_password_authentication = false
+#   network_interface_ids = [
+#     azurerm_network_interface.main.id,
+#   ]
 
-  os_disk {
-    storage_account_type = "Standard_LRS"
-    caching              = "ReadWrite"
-  }
-  provisioner "file" {
-    connection {
-      type = "ssh"
-      user = var.bootstrap_username
-      password = var.bootstrap_password
-      host = azurerm_public_ip.main.ip_address
-      agent    = false
-      timeout  = "10m"
-    }
-    source = "${path.cwd}/../binaries/" 
-    destination = "/home/${var.bootstrap_username}" 
-  }
+#   source_image_reference {
+#     publisher = "Canonical"
+#     offer     = "0001-com-ubuntu-server-focal"
+#     sku       = "20_04-lts-gen2"
+#     version   = "latest"
+#   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "cd",
-      "export TANZU_CLI_NO_INIT=true",
-      "mkdir $HOME/tanzu",
-      "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
-      "cd $HOME/tanzu",
-      "export VERSION=v0.25.4",
-      "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
-      "tanzu version",
-      "mkdir $HOME/tanzu-cluster-essentials",
-      "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
-    ]
+#   os_disk {
+#     storage_account_type = "Standard_LRS"
+#     caching              = "ReadWrite"
+#   }
+#   provisioner "file" {
+#     connection {
+#       type = "ssh"
+#       user = var.bootstrap_username
+#       password = var.bootstrap_password
+#       host = azurerm_public_ip.main.ip_address
+#       agent    = false
+#       timeout  = "10m"
+#     }
+#     source = "${path.cwd}/../binaries/" 
+#     destination = "/home/${var.bootstrap_username}" 
+#   }
 
-    connection {
-      host     = self.public_ip_address
-      user     = self.admin_username
-      password = self.admin_password
-    }
-  }
-}
+#   provisioner "remote-exec" {
+#     inline = [
+#       "cd",
+#       "export TANZU_CLI_NO_INIT=true",
+#       "mkdir $HOME/tanzu",
+#       "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
+#       "cd $HOME/tanzu",
+#       "export VERSION=v0.25.4",
+#       "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
+#       "tanzu version",
+#       "mkdir $HOME/tanzu-cluster-essentials",
+#       "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
+#     ]
+
+#     connection {
+#       host     = self.public_ip_address
+#       user     = self.admin_username
+#       password = self.admin_password
+#     }
+#   }
+# }
+
+
+# -------------------------------------- END BOOTSTRAP BOX ---------------------------------------------
 
 # Create ACR
 
+resource "azurerm_container_registry" "acr" {
+  name                = "containerRegistry1"
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location
+  sku                 = "Premium"
+}
+
 # Create AKS
 
+# TODO:
+resource "azurerm_kubernetes_cluster" "tap_cluster" {
+  name                = "example-aks1"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  dns_prefix          = "exampleaks1"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_D2_v2"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = {
+    Environment = "Production"
+  }
+}
 
 # After AKS:
 
