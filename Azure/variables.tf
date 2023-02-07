@@ -45,15 +45,21 @@ variable "bootstrap_password" {
 
 
 variable "tanzu_registry_hostname" {
-  description = "Password for bootsrap box"
+  description = "URL for Tanzu registry"
 }
 
 
 variable "tanzu_registry_username" {
-  description = "Password for bootsrap box"
+  description = "Username for Tanzu registry"
 }
 
 
 variable "tanzu_registry_password" {
-  description = "Password for bootsrap box"
+  description = "Password for Tanzu registry"
+}
+
+### ACR
+
+variable "tap_acr_name" {
+  description = "Name of the ACR registry"
 }
