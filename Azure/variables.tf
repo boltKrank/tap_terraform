@@ -63,3 +63,14 @@ variable "tanzu_registry_password" {
 variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
+
+### AKS
+
+variable "tap_aks_name" {
+  description = "Name of the AKS cluster"
+}
+
+
+variable "tap_dns_prefix" {
+  description = "DNS prefix for TAP"
+}

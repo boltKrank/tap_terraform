@@ -1,6 +1,9 @@
 # Binaries
 binaries/
 
+# Terraform test manifests
+terraform_test/
+
 # Local .terraform directories
 **/.terraform/*
 
