@@ -27,8 +27,8 @@ variable "sp_secret" {
 }
 
 ### Other variables
-variable "prefix" {
-  description = "The prefix which should be used for all resources"
+variable "resource_group" {
+  description = "Resource group name"
 }
 
 variable "location" {
