@@ -10,16 +10,18 @@ variable "subscription_name" {
   sensitive = true
 }
 
-variable "tenant_id" {
+### Service Principal
+
+variable "sp_tenant_id" {
   type = string
 }
 
-variable "client_id" {
+variable "sp_client_id" {
   type = string
   sensitive = true
 }
 
-variable "client_secret" {
+variable "sp_secret" {
   type = string
   sensitive = true
 }
@@ -74,3 +76,5 @@ variable "tap_aks_name" {
 variable "tap_dns_prefix" {
   description = "DNS prefix for TAP"
 }
+
+

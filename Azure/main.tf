@@ -38,58 +38,38 @@ resource "azurerm_container_registry" "acr" {
 # # Create AKS
 
 resource "azurerm_kubernetes_cluster" "tap_aks" {
-  location            = azurerm_resource_group.tap_resource_group.location
-  name                = var.cluster_name #TODO
+  name                = "tapcluster" #TODO
   resource_group_name = azurerm_resource_group.tap_resource_group.name
-  dns_prefix          = var.dns_prefix
+  location            = azurerm_resource_group.tap_resource_group.location    
+  dns_prefix = "tap"
   tags                = {
     Environment = "Development"
   }
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = "Standard_D2_v2"  # Standard_b4ms
-    node_count = var.agent_count # 3 ~ 5
+    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+    node_count = "4" # 3 ~ 5
+    vnet_subnet_id = azurerm_subnet.internal.id
   }
-  linux_profile {
-    admin_username = "ubuntu"
 
-    ssh_key {
-      key_data = file(var.ssh_public_key)
-    }
+  service_principal {
+    client_id = var.sp_client_id
+    client_secret = var.sp_secret
   }
+
   network_profile {
     network_plugin    = "kubenet"
     load_balancer_sku = "standard"
   }
-  service_principal {
-    client_id     = var.aks_service_principal_app_id
-    client_secret = var.aks_service_principal_client_secret
-  }
+
 }
 
+data "azurerm_public_ip" "tapclusterPIP" {
+  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+  resource_group_name = azurerm_kubernetes_cluster.tap_aks.node_resource_group
+}
 
-# # TODO:
-# resource "azurerm_kubernetes_cluster" "tap_cluster" {
-#   name                = "tap-cluster"
-#   location            = azurerm_resource_group.tap_resource_group.location
-#   resource_group_name = azurerm_resource_group.tap_resource_group.name
-#   dns_prefix          = "exampleaks1"
-
-#   default_node_pool {
-#     name       = "default"
-#     node_count = 1
-#     vm_size    = "Standard_D2_v2"
-#   }
-
-#   identity {
-#     type = "SystemAssigned"
-#   }
-
-#   tags = {
-#     Environment = "Production"
-#   }
-# }
 
 # -------------------------------------- END K8S STUFF  --------------------------------------------------
 
