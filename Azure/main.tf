@@ -28,47 +28,47 @@ resource "azurerm_subnet" "internal" {
 
 # # # # Create ACR
 
-# resource "azurerm_container_registry" "acr" {
-#   name                = var.tap_acr_name
-#   resource_group_name = azurerm_resource_group.tap_resource_group.name
-#   location            = azurerm_resource_group.tap_resource_group.location
-#   sku                 = "Standard"
-# }
+resource "azurerm_container_registry" "acr" {
+  name                = var.tap_acr_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location
+  sku                 = "Standard"
+}
 
 # # # # # Create AKS
 
-# resource "azurerm_kubernetes_cluster" "tap_aks" {
-#   name                = var.tap_aks_name
-#   resource_group_name = azurerm_resource_group.tap_resource_group.name
-#   location            = azurerm_resource_group.tap_resource_group.location    
-#   dns_prefix = "tap"
-#   tags                = {
-#     Environment = "Development"
-#   }
+resource "azurerm_kubernetes_cluster" "tap_aks" {
+  name                = var.tap_aks_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location    
+  dns_prefix = "tap"
+  tags                = {
+    Environment = "Development"
+  }
 
-#   default_node_pool {
-#     name       = "agentpool"
-#     vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
-#     node_count = "4" # 3 ~ 5
-#     vnet_subnet_id = azurerm_subnet.internal.id
-#   }
+  default_node_pool {
+    name       = "agentpool"
+    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+    node_count = "4" # 3 ~ 5
+    vnet_subnet_id = azurerm_subnet.internal.id
+  }
 
-#   service_principal {
-#     client_id = var.sp_client_id
-#     client_secret = var.sp_secret
-#   }
+  service_principal {
+    client_id = var.sp_client_id
+    client_secret = var.sp_secret
+  }
 
-#   network_profile {
-#     network_plugin    = "kubenet"
-#     load_balancer_sku = "standard"
-#   }
+  network_profile {
+    network_plugin    = "kubenet"
+    load_balancer_sku = "standard"
+  }
 
-# }
+}
 
-# data "azurerm_public_ip" "tapclusterPIP" {
-#   name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
-#   resource_group_name = azurerm_kubernetes_cluster.tap_aks.node_resource_group
-# }
+data "azurerm_public_ip" "tapclusterPIP" {
+  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+  resource_group_name = azurerm_kubernetes_cluster.tap_aks.node_resource_group
+}
 
 
 # -------------------------------------- END K8S STUFF  --------------------------------------------------
@@ -135,15 +135,15 @@ resource "azurerm_linux_virtual_machine" "main" {
 
   provisioner "remote-exec" {
     inline = [
-     # "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-	   # "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+      "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
+	    "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
       "curl -fsSL https://get.docker.com -o get-docker.sh",
       "sudo sh get-docker.sh",
       "sudo groupadd docker",
       "sudo usermod -aG docker $USER",
       "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
-      # "az account set --subscription ${var.subscription_id}",
-      # "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_aks_name}",
+      "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_aks_name}",
       "cd",
       "export TANZU_CLI_NO_INIT=true",
       "mkdir $HOME/tanzu",
@@ -155,16 +155,16 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cd",
       "mkdir $HOME/tanzu-cluster-essentials",
       "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
-      # "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
-      # "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
-      # "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
-      # "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
-      # "cd $HOME/tanzu-cluster-essentials",
-      # "./install.sh --yes",
-      # "sudo cp $HOME/tanzu-cluster-essentials/kapp /usr/local/bin/kapp",
-      # "sudo cp $HOME/tanzu-cluster-essentials/imgpkg /usr/local/bin/imgpkg",
-      # "wget -O- https://carvel.dev/install.sh > install.sh",
-      # "sudo bash install.sh",
+      "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
+      "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
+      "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
+      "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
+      "cd $HOME/tanzu-cluster-essentials",
+      "./install.sh --yes",
+      "sudo cp $HOME/tanzu-cluster-essentials/kapp /usr/local/bin/kapp",
+      "sudo cp $HOME/tanzu-cluster-essentials/imgpkg /usr/local/bin/imgpkg",
+      "wget -O- https://carvel.dev/install.sh > install.sh",
+      "sudo bash install.sh",
     ]
 
     connection {
@@ -180,14 +180,3 @@ resource "azurerm_linux_virtual_machine" "main" {
 
 
 
-
-# After AKS:
-
-    # inline = [
-    #   "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
-    #   "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
-    #   "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
-    #   "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
-    #   "cd $HOME/tanzu-cluster-essentials",
-    #   "./install.sh --yes",
-    #   ]
