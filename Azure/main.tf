@@ -2,6 +2,14 @@
 
 provider "azurerm" {
   features {}
+
+
+  subscription_id = var.subscription_id
+  # tap_sp
+  client_id       = var.sp_client_id
+  client_secret   = var.sp_secret
+  tenant_id       = var.sp_tenant_id
+
 }
 
 resource "azurerm_resource_group" "tap_resource_group" {
@@ -28,7 +36,7 @@ resource "azurerm_subnet" "internal" {
 
 # # # # Create ACR
 
-resource "azurerm_container_registry" "acr" {
+resource "azurerm_container_registry" "tap_acr" {
   name                = var.tap_acr_name
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
