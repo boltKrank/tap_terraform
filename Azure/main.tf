@@ -128,6 +128,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     storage_account_type = "Standard_LRS"
     caching              = "ReadWrite"
   }
+  
   provisioner "file" {
     connection {
       type = "ssh"
@@ -138,6 +139,19 @@ resource "azurerm_linux_virtual_machine" "main" {
       timeout  = "10m"
     }
     source = "${path.cwd}/../binaries/" 
+    destination = "/home/${var.bootstrap_username}" 
+  }
+
+  provisioner "file" {
+    connection {
+      type = "ssh"
+      user = var.bootstrap_username
+      password = var.bootstrap_password
+      host = azurerm_public_ip.bootstrap_pip.ip_address
+      agent    = false
+      timeout  = "10m"
+    }
+    source = "${path.cwd}/../tap-values/tap-values-full.yaml" 
     destination = "/home/${var.bootstrap_username}" 
   }
 
@@ -170,14 +184,11 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
       "cd $HOME/tanzu-cluster-essentials",
       "./install.sh --yes",
-      # "sudo cp $HOME/tanzu-cluster-essentials/kapp /usr/local/bin/kapp",
-      # "sudo cp $HOME/tanzu-cluster-essentials/imgpkg /usr/local/bin/imgpkg",
-      # "wget -O- https://carvel.dev/install.sh > install.sh",
-      # "sudo bash install.sh",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username ${var.tanzu_registry_username} --password ${var.tanzu_registry_password} --server ${var.tanzu_registry_hostname} --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install",
       "tanzu package repository get tanzu-tap-repository --namespace tap-install",
+      # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values.yml -n tap-install",  TODO: tap-values.yaml file
     ]
 
     connection {
