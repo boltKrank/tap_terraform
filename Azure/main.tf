@@ -159,6 +159,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cd $HOME/tanzu",
       "export VERSION=v0.25.4",
       "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
+      "tanzu init",
       "tanzu version",
       "cd",
       "mkdir $HOME/tanzu-cluster-essentials",

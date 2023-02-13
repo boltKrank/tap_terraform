@@ -2,12 +2,12 @@
 
 variable "subscription_id" {
   type = string
-  sensitive = true
+  # sensitive = true
 }
 
 variable "subscription_name" {
   type = string
-  sensitive = true
+  # sensitive = true
 }
 
 ### Service Principal
@@ -18,12 +18,12 @@ variable "sp_tenant_id" {
 
 variable "sp_client_id" {
   type = string
-  sensitive = true
+  # sensitive = true
 }
 
 variable "sp_secret" {
   type = string
-  sensitive = true
+  # sensitive = true
 }
 
 ### Other variables
