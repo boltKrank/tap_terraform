@@ -142,18 +142,18 @@ resource "azurerm_linux_virtual_machine" "main" {
     destination = "/home/${var.bootstrap_username}" 
   }
 
-  provisioner "file" {
-    connection {
-      type = "ssh"
-      user = var.bootstrap_username
-      password = var.bootstrap_password
-      host = azurerm_public_ip.bootstrap_pip.ip_address
-      agent    = false
-      timeout  = "10m"
-    }
-    source = "${path.cwd}/../tap-values/tap-values-full.yaml" 
-    destination = "/home/${var.bootstrap_username}" 
-  }
+  # provisioner "file" {
+  #   connection {
+  #     type = "ssh"
+  #     user = var.bootstrap_username
+  #     password = var.bootstrap_password
+  #     host = azurerm_public_ip.bootstrap_pip.ip_address
+  #     agent    = false
+  #     timeout  = "10m"
+  #   }
+  #   source = "${path.cwd}/../tap-values/tap-values-full.yaml" 
+  #   destination = "/home/${var.bootstrap_username}" 
+  # }
 
   provisioner "remote-exec" {
     inline = [
