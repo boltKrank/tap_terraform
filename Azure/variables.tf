@@ -66,15 +66,39 @@ variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
 
-### AKS
+### AKS View
 
-variable "tap_aks_name" {
-  description = "Name of the AKS cluster"
+variable "tap_view_aks_name" {
+  description = "Name of the View AKS cluster"
 }
 
 
-variable "tap_dns_prefix" {
-  description = "DNS prefix for TAP"
+variable "tap_view_dns_prefix" {
+  description = "DNS prefix for TAP view"
+}
+
+
+### AKS Build
+
+variable "tap_build_aks_name" {
+  description = "Name of the build AKS cluster"
+}
+
+
+variable "tap_build_dns_prefix" {
+  description = "DNS prefix for TAP build"
+}
+
+
+### AKS Run
+
+variable "tap_run_aks_name" {
+  description = "Name of the run AKS cluster"
+}
+
+
+variable "tap_run_dns_prefix" {
+  description = "DNS prefix for TAP run"
 }
 
 

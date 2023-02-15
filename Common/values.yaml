@@ -1,0 +1,143 @@
+#@ load("@ytt:data", "data")
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tap-tap-install-values
+  namespace: tap-install
+  annotations:
+    kapp.k14s.io/change-group: "tap-install-values"
+type: Opaque
+stringData:
+  #@yaml/text-templated-strings
+  tap-values.yml: |
+    ---
+    profile: view
+    
+    ceip_policy_disclosed: true
+    
+    shared:
+      ingress_domain: view.lime.maki.lol
+      ingress_issuer: letsencrypt
+    
+    contour:
+      infrastructure_provider: "azure"
+      contour:
+        replicas: 1
+        configFileContents:
+          accesslog-format: json
+      envoy:
+        service:
+          type: LoadBalancer
+          loadBalancerIP: 20.48.32.179      
+          annotations:
+            service.beta.kubernetes.io/azure-load-balancer-resource-group: lime
+      azure:
+        client_id: (@= data.values.azure.client_id @)
+        client_secret: (@= data.values.azure.client_secret @)
+        subscription_id: (@= data.values.azure.subscription_id @)
+        tenant_id: (@= data.values.azure.tenant_id @)
+    
+    tap_gui:
+      service_type: ClusterIP
+      app_config:
+        auth:
+          environment: development
+          session:
+            secret: opensesami
+          providers:
+            oidc:
+              development:
+                metadataUrl: (@= data.values.tap_gui.oidc.issuer @)/.well-known/openid-configuration
+                clientId: (@= data.values.tap_gui.oidc.client_id @)
+                clientSecret: (@= data.values.tap_gui.oidc.client_secret @)
+                tokenSignedResponseAlg: RS256
+                scope: "openid profile email"
+                prompt: auto
+        backend:
+          database:
+            client: pg
+            connection:
+              host: ${TAP_GUI_DB_SERVICE_HOST}
+              port: ${TAP_GUI_DB_SERVICE_PORT}
+              user: ${POSTGRES_USER}
+              password: ${POSTGRES_PASSWORD}
+        catalog:
+          locations:
+          - type: url
+            target: https://github.com/sample-accelerators/tanzu-java-web-app/blob/main/catalog/catalog-info.yaml
+        kubernetes:
+          serviceLocatorMethod:
+            type: multiTenant
+          clusterLocatorMethods:
+          - type: config
+            clusters:
+            - name: lime-run
+              #! kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context lime-run-admin
+              url: (@= data.values.clusters.lime.run.url @)
+              authProvider: serviceAccount
+              #! kubectl -n tap-gui get secret tap-gui-viewer -otemplate='{{index .data "token" | base64decode}}' --context lime-run-admin
+              serviceAccountToken: (@= data.values.clusters.lime.run.service_account_token @) 
+              skipTLSVerify: false
+              #! kubectl -n tap-gui get secret tap-gui-viewer -otemplate='{{index .data "ca.crt"}}' --context lime-run-admin
+              caData: (@= data.values.clusters.lime.run.ca_data @)
+            - name: lime-build
+              #! kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context lime-build-admin
+              url: (@= data.values.clusters.lime.build.url @)
+              authProvider: serviceAccount
+              #! #! kubectl -n tap-gui get secret tap-gui-viewer -otemplate='{{index .data "token" | base64decode}}' --context lime-build-admin
+              serviceAccountToken: (@= data.values.clusters.lime.build.service_account_token @) 
+              skipTLSVerify: false
+              #! kubectl -n tap-gui get secret tap-gui-viewer -otemplate='{{index .data "ca.crt"}}' --context lime-build-admin
+              caData: (@= data.values.clusters.lime.build.ca_data @)
+            - name: kiwi-run
+              url: (@= data.values.clusters.kiwi.run.url @)
+              authProvider: serviceAccount
+              serviceAccountToken: (@= data.values.clusters.kiwi.run.service_account_token @) 
+              skipTLSVerify: false
+              caData: (@= data.values.clusters.kiwi.run.ca_data @)
+        proxy:
+          /metadata-store:
+            target: https://metadata-store-app.metadata-store:8443/api/v1
+            changeOrigin: true
+            secure: false
+            headers:
+              #! kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}' --context lime-view-admin
+              Authorization: "Bearer (@= data.values.metadata_store.token @)"
+              X-Custom-Source: project-star
+    appliveview:
+      ingressEnabled: true
+      tls:
+        secretName: tap-default-tls
+        namespace: tanzu-system-ingress
+    
+    accelerator:
+      ingress:
+        include: true
+        enable_tls: true
+      tls:
+        secret_name: tap-default-tls
+        namespace: tanzu-system-ingress
+
+    metadata_store:
+      ns_for_export_app_cert: "*"
+
+    package_overlays:
+    - name: contour
+      secrets:
+      - name: contour-default-tls
+    - name: tap-gui
+      secrets:
+      - name: tap-gui-db
+      - name: tap-gui-change-fqdn
+    - name: metadata-store
+      secrets:
+      - name: metadata-store-read-only-client
+    - name: tap-telemetry
+      secrets:
+      - name: tap-telemetry-remove
+    
+    excluded_packages:
+    - learningcenter.tanzu.vmware.com
+    - workshops.learningcenter.tanzu.vmware.com
+    - api-portal.tanzu.vmware.com
+    - accelerator.apps.tanzu.vmware.com

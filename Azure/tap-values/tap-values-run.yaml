@@ -1,26 +1,43 @@
 profile: run
-ceip_policy_disclosed: FALSE-OR-TRUE-VALUE # Installation fails if this is not set to true. Not a string.
+ceip_policy_disclosed: true
 
 shared:
-  ingress_domain: INGRESS-DOMAIN
-  kubernetes_distribution: "openshift" # To be passed only for Openshift. Defaults to "".
-  kubernetes_version: "K8S-VERSION"
-  ca_cert_data: | # To be passed if using custom certificates.
-    -----BEGIN CERTIFICATE-----
-    MIIFXzCCA0egAwIBAgIJAJYm37SFocjlMA0GCSqGSIb3DQEBDQUAMEY...
-    -----END CERTIFICATE-----
-supply_chain: basic
+  ingress_domain: run.tap.local
+  ingress_issuer: ""
 
 contour:
   envoy:
     service:
-      type: LoadBalancer # NodePort can be used if your Kubernetes cluster doesn't support LoadBalancing.
+      type: LoadBalancer
+      loadBalancerIP: 20.210.225.114 # run-envoy-ip
+      annotations:
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: <RG_NAME>
+        service.beta.kubernetes.io/azure-load-balancer-tcp-idle-timeout: "5"
 
 appliveview_connector:
   backend:
-    sslDeactivated: TRUE-OR-FALSE-VALUE
     ingressEnabled: true
-    host: appliveview.VIEW-CLUSTER-INGRESS-DOMAIN
+    host: appliveview.view.tap.local
 
-tap_telemetry:
-  customer_entitlement_account_number: "CUSTOMER-ENTITLEMENT-ACCOUNT-NUMBER" # (Optional) Identify data for creating Tanzu Application Platform usage reports.
+api_auto_registration:
+  tap_gui_url: http://tap-gui.tap.local
+
+cnrs:
+  domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
+  default_tls_secret: tanzu-system-ingress/tap-default-tls
+
+ootb_delivery_basic:
+  git_implementation: libgit2
+
+#package_overlays:
+#- name: contour
+#  secrets:
+#  - name: contour-loadbalancer
+#  - name: contour-tap-default-tls
+#- name: ootb-templates
+#  secrets:
+#  - name: ootb-templates-remove-dot-git
+
+excluded_packages:
+  - image-policy-webhook.signing.apps.tanzu.vmware.com
+  - eventing.tanzu.vmware.com

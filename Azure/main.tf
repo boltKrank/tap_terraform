@@ -45,11 +45,13 @@ resource "azurerm_container_registry" "tap_acr" {
 
 # # # # # Create AKS
 
-resource "azurerm_kubernetes_cluster" "tap_aks" {
-  name                = var.tap_aks_name
+# TAP VIEW START
+
+resource "azurerm_kubernetes_cluster" "tap_view_aks" {
+  name                = var.tap_view_aks_name
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location    
-  dns_prefix = "tap"
+  dns_prefix = var.tap_view_dns_prefix
   tags                = {
     Environment = "Development"
   }
@@ -57,7 +59,7 @@ resource "azurerm_kubernetes_cluster" "tap_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
-    node_count = "4" # 3 ~ 5
+    node_count = "3" # 3 ~ 5
     vnet_subnet_id = azurerm_subnet.internal.id
   }
 
@@ -73,11 +75,86 @@ resource "azurerm_kubernetes_cluster" "tap_aks" {
 
 }
 
-data "azurerm_public_ip" "tapclusterPIP" {
-  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
-  resource_group_name = azurerm_kubernetes_cluster.tap_aks.node_resource_group
+data "azurerm_public_ip" "tap_view_PIP" {
+  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_view_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+  resource_group_name = azurerm_kubernetes_cluster.tap_view_aks.node_resource_group
 }
 
+# TAP VIEW END
+
+# TAP BUILD START
+
+resource "azurerm_kubernetes_cluster" "tap_build_aks" {
+  name                = var.tap_build_aks_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location    
+  dns_prefix = var.tap_build_dns_prefix
+  tags                = {
+    Environment = "Development"
+  }
+
+  default_node_pool {
+    name       = "agentpool"
+    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+    node_count = "3" # 3 ~ 5
+    vnet_subnet_id = azurerm_subnet.internal.id
+  }
+
+  service_principal {
+    client_id = var.sp_client_id
+    client_secret = var.sp_secret
+  }
+
+  network_profile {
+    network_plugin    = "kubenet"
+    load_balancer_sku = "standard"
+  }
+
+}
+
+data "azurerm_public_ip" "tap_build_PIP" {
+  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_build_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+  resource_group_name = azurerm_kubernetes_cluster.tap_build_aks.node_resource_group
+}
+
+# TAP BUILD END
+
+# TAP RUN START
+
+resource "azurerm_kubernetes_cluster" "tap_run_aks" {
+  name                = var.tap_run_aks_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location    
+  dns_prefix = var.tap_run_dns_prefix
+  tags                = {
+    Environment = "Development"
+  }
+
+  default_node_pool {
+    name       = "agentpool"
+    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+    node_count = "3" # 3 ~ 5
+    vnet_subnet_id = azurerm_subnet.internal.id
+  }
+
+  service_principal {
+    client_id = var.sp_client_id
+    client_secret = var.sp_secret
+  }
+
+  network_profile {
+    network_plugin    = "kubenet"
+    load_balancer_sku = "standard"
+  }
+
+}
+
+data "azurerm_public_ip" "tap_run_PIP" {
+  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_run_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+  resource_group_name = azurerm_kubernetes_cluster.tap_run_aks.node_resource_group
+}
+
+# TAP RUN  END
 
 # -------------------------------------- END K8S STUFF  --------------------------------------------------
 
@@ -142,18 +219,31 @@ resource "azurerm_linux_virtual_machine" "main" {
     destination = "/home/${var.bootstrap_username}" 
   }
 
-  # provisioner "file" {
-  #   connection {
-  #     type = "ssh"
-  #     user = var.bootstrap_username
-  #     password = var.bootstrap_password
-  #     host = azurerm_public_ip.bootstrap_pip.ip_address
-  #     agent    = false
-  #     timeout  = "10m"
-  #   }
-  #   source = "${path.cwd}/../tap-values/tap-values-full.yaml" 
-  #   destination = "/home/${var.bootstrap_username}" 
-  # }
+  provisioner "file" {
+    connection {
+      type = "ssh"
+      user = var.bootstrap_username
+      password = var.bootstrap_password
+      host = azurerm_public_ip.bootstrap_pip.ip_address
+      agent    = false
+      timeout  = "10m"
+    }
+    source = "${path.cwd}/tap-values/" 
+    destination = "/home/${var.bootstrap_username}" 
+  }
+
+  provisioner "file" {
+    connection {
+      type = "ssh"
+      user = var.bootstrap_username
+      password = var.bootstrap_password
+      host = azurerm_public_ip.bootstrap_pip.ip_address
+      agent    = false
+      timeout  = "10m"
+    }
+    source = "${path.cwd}/../Common/kube-ps1.sh" 
+    destination = "/home/${var.bootstrap_username}/kube-ps1.sh" 
+  }
 
   provisioner "remote-exec" {
     inline = [
@@ -188,8 +278,16 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu secret registry add tap-registry --username ${var.tanzu_registry_username} --password ${var.tanzu_registry_password} --server ${var.tanzu_registry_hostname} --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install",
       "tanzu package repository get tanzu-tap-repository --namespace tap-install",
-      # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values.yml -n tap-install",  TODO: tap-values.yaml file
+      # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install",  # TODO: tap-values.yaml file
     ]
+
+    # Full build dependencies:
+    # tanzu package repository add tbs-full-deps-repository --url registry.tanzu.vmware.com/tanzu-application-platform/full-tbs-deps-package-repo:1.9.0 --namespace tap-install
+    # tanzu package available list -n tap-install
+    # tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v 1.9.0 -n tap-install
+
+    # "echo "source $HOME/kube-ps1.sh" >> ~/.bashrc"
+    # "echo "PS1='[\u@\h \W $(kube_ps1)]\$ '" >> ~/.bashrc"
 
     connection {
       host     = self.public_ip_address
