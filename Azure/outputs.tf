@@ -14,10 +14,6 @@ output "outgoing_run_ip" {
   value = data.azurerm_public_ip.tap_run_PIP.ip_address
 }
 
-output "cluster_fqdn" {
-  value = data.azurerm_public_ip.tapclusterPIP.fqdn
-}
-
 output "public_ip_address" {
   value = azurerm_public_ip.bootstrap_pip.ip_address
 }

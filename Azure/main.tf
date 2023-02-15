@@ -255,7 +255,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo usermod -aG docker $USER",
       "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
       "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
-      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_aks_name}",
+      # view/build/run "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_aks_name}",
       "cd",
       "export TANZU_CLI_NO_INIT=true",
       "mkdir $HOME/tanzu",
