@@ -43,7 +43,7 @@ resource "azurerm_container_registry" "tap_acr" {
   sku                 = "Standard"
 }
 
-# # # # # Create AKS
+# # # # # Create AKS TODO: change code to "profile: full" or loop "view,build,run"
 
 # TAP VIEW START
 
@@ -245,7 +245,10 @@ resource "azurerm_linux_virtual_machine" "main" {
     destination = "/home/${var.bootstrap_username}/kube-ps1.sh" 
   }
 
-  provisioner "remote-exec" {
+  # remote-exec provisioner array [iterate,view,build,run] - branch after Tanzu CLI
+
+
+  provisioner "remote-exec" { # x1 (full) x3/4 (multi)
     inline = [
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
 	    "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
@@ -261,7 +264,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "mkdir $HOME/tanzu",
       "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
       "cd $HOME/tanzu",
-      "export VERSION=v0.25.4",
+      "export VERSION=v0.25.4", # Change to variable
       "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
       "tanzu init",
       "tanzu version",
@@ -276,7 +279,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username ${var.tanzu_registry_username} --password ${var.tanzu_registry_password} --server ${var.tanzu_registry_hostname} --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install", # Change TAP version to variable
       "tanzu package repository get tanzu-tap-repository --namespace tap-install",
       # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install",  # TODO: tap-values.yaml file
     ]
@@ -299,6 +302,10 @@ resource "azurerm_linux_virtual_machine" "main" {
 
 
 # -------------------------------------- END BOOTSTRAP BOX ---------------------------------------------
+
+
+
+
 
 # -------------------------------------- START DNS  ----------------------------------------------------
 # -------------------------------------- END   DNS  ----------------------------------------------------
