@@ -82,79 +82,79 @@ data "azurerm_public_ip" "tap_view_PIP" {
 
 # TAP VIEW END
 
-# TAP BUILD START
+# # TAP BUILD START
 
-resource "azurerm_kubernetes_cluster" "tap_build_aks" {
-  name                = var.tap_build_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
-  dns_prefix = var.tap_build_dns_prefix
-  tags                = {
-    Environment = "Development"
-  }
+# resource "azurerm_kubernetes_cluster" "tap_build_aks" {
+#   name                = var.tap_build_aks_name
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location    
+#   dns_prefix = var.tap_build_dns_prefix
+#   tags                = {
+#     Environment = "Development"
+#   }
 
-  default_node_pool {
-    name       = "agentpool"
-    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
-    node_count = "3" # 3 ~ 5
-    vnet_subnet_id = azurerm_subnet.internal.id
-  }
+#   default_node_pool {
+#     name       = "agentpool"
+#     vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+#     node_count = "3" # 3 ~ 5
+#     vnet_subnet_id = azurerm_subnet.internal.id
+#   }
 
-  service_principal {
-    client_id = var.sp_client_id
-    client_secret = var.sp_secret
-  }
+#   service_principal {
+#     client_id = var.sp_client_id
+#     client_secret = var.sp_secret
+#   }
 
-  network_profile {
-    network_plugin    = "kubenet"
-    load_balancer_sku = "standard"
-  }
+#   network_profile {
+#     network_plugin    = "kubenet"
+#     load_balancer_sku = "standard"
+#   }
 
-}
+# }
 
-data "azurerm_public_ip" "tap_build_PIP" {
-  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_build_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
-  resource_group_name = azurerm_kubernetes_cluster.tap_build_aks.node_resource_group
-}
+# data "azurerm_public_ip" "tap_build_PIP" {
+#   name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_build_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+#   resource_group_name = azurerm_kubernetes_cluster.tap_build_aks.node_resource_group
+# }
 
-# TAP BUILD END
+# # TAP BUILD END
 
-# TAP RUN START
+# # TAP RUN START
 
-resource "azurerm_kubernetes_cluster" "tap_run_aks" {
-  name                = var.tap_run_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
-  dns_prefix = var.tap_run_dns_prefix
-  tags                = {
-    Environment = "Development"
-  }
+# resource "azurerm_kubernetes_cluster" "tap_run_aks" {
+#   name                = var.tap_run_aks_name
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location    
+#   dns_prefix = var.tap_run_dns_prefix
+#   tags                = {
+#     Environment = "Development"
+#   }
 
-  default_node_pool {
-    name       = "agentpool"
-    vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
-    node_count = "3" # 3 ~ 5
-    vnet_subnet_id = azurerm_subnet.internal.id
-  }
+#   default_node_pool {
+#     name       = "agentpool"
+#     vm_size    = "Standard_B4ms"  # Standard_b4ms (4vcpu, 16Gb mem)
+#     node_count = "3" # 3 ~ 5
+#     vnet_subnet_id = azurerm_subnet.internal.id
+#   }
 
-  service_principal {
-    client_id = var.sp_client_id
-    client_secret = var.sp_secret
-  }
+#   service_principal {
+#     client_id = var.sp_client_id
+#     client_secret = var.sp_secret
+#   }
 
-  network_profile {
-    network_plugin    = "kubenet"
-    load_balancer_sku = "standard"
-  }
+#   network_profile {
+#     network_plugin    = "kubenet"
+#     load_balancer_sku = "standard"
+#   }
 
-}
+# }
 
-data "azurerm_public_ip" "tap_run_PIP" {
-  name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_run_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
-  resource_group_name = azurerm_kubernetes_cluster.tap_run_aks.node_resource_group
-}
+# data "azurerm_public_ip" "tap_run_PIP" {
+#   name                = reverse(split("/", tolist(azurerm_kubernetes_cluster.tap_run_aks.network_profile.0.load_balancer_profile.0.effective_outbound_ips)[0]))[0]
+#   resource_group_name = azurerm_kubernetes_cluster.tap_run_aks.node_resource_group
+# }
 
-# TAP RUN  END
+# # TAP RUN  END
 
 # -------------------------------------- END K8S STUFF  --------------------------------------------------
 
@@ -247,8 +247,9 @@ resource "azurerm_linux_virtual_machine" "main" {
 
   # remote-exec provisioner array [iterate,view,build,run] - branch after Tanzu CLI
 
+  # x1 (full) x3/4 (multi)
 
-  provisioner "remote-exec" { # x1 (full) x3/4 (multi)
+  provisioner "remote-exec" { 
     inline = [
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
 	    "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
