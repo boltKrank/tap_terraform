@@ -41,6 +41,7 @@ resource "azurerm_container_registry" "tap_acr" {
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
   sku                 = "Standard"
+  admin_enabled       = true
 }
 
 # # # # # Create AKS TODO: change code to "profile: full" or loop "view,build,run"
@@ -259,7 +260,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo usermod -aG docker $USER",
       "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
       "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
-      # view/build/run "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_aks_name}",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name}",
       "cd",
       "export TANZU_CLI_NO_INIT=true",
       "mkdir $HOME/tanzu",
@@ -276,14 +277,32 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
       "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
       "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
+      "export TAP_VERSION=1.4.0",
       "cd $HOME/tanzu-cluster-essentials",
       "./install.sh --yes",
       "kubectl create ns tap-install",
-      "tanzu secret registry add tap-registry --username ${var.tanzu_registry_username} --password ${var.tanzu_registry_password} --server ${var.tanzu_registry_hostname} --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install", # Change TAP version to variable
-      "tanzu package repository get tanzu-tap-repository --namespace tap-install",
+      "cd",
+      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+      "sudo rm -rf /usr/local/go",
+      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+      "export PATH=$PATH:/usr/local/go/bin",
+      "git clone https://github.com/boltKrank/imgpkg.git",
+      "cd $HOME/imgpkg",
+      "$HOME/imgpkg/hack/build.sh",
+      "sudo cp imgpkg /usr/local/bin/imgpkg",
+      "cd",
+      "imgpkg copy -b registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:${var.tap_version} --to-tar tap_${var.tap_version}.tar --registry-username ${var.tanzu_registry_username} --registry-password ${var.tanzu_registry_password} --include-non-distributable-layers",
+      "imgpkg copy --tar tap_${var.tap_version}.tar --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --registry-username ${var.tap_acr_name} --registry-password ${azurerm_container_registry.tap_acr.admin_password} --include-non-distributable-layers",
+      "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${azurerm_container_registry.tap_acr.admin_password} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${azurerm_container_registry.tap_acr.admin_password}",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install", 
+      # "tanzu package repository get tanzu-tap-repository --namespace tap-install",
       # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install",  # TODO: tap-values.yaml file
     ]
+
+    # Carvel tools:
+    # "sudo cp $HOME/tanzu-cluster-essentials/kapp /usr/local/bin/kapp",
+    # "sudo cp $HOME/tanzu-cluster-essentials/imgpkg /usr/local/bin/imgpkg",
 
     # Full build dependencies:
     # tanzu package repository add tbs-full-deps-repository --url registry.tanzu.vmware.com/tanzu-application-platform/full-tbs-deps-package-repo:1.9.0 --namespace tap-install

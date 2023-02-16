@@ -60,6 +60,10 @@ variable "tanzu_registry_password" {
   description = "Password for Tanzu registry"
 }
 
+variable "tap_version" {
+  description = "The version of TAP to install"
+}
+
 ### ACR
 
 variable "tap_acr_name" {
