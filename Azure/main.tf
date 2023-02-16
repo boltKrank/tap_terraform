@@ -297,10 +297,10 @@ resource "azurerm_linux_virtual_machine" "main" {
       "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${azurerm_container_registry.tap_acr.admin_password}",
       "tanzu package repository add tanzu-tap-repository --url ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:1.4.0 --namespace tap-install", 
       # "tanzu package repository get tanzu-tap-repository --namespace tap-install",
-      # "tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install",  # TODO: tap-values.yaml file
+      # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-view.yaml -n tap-install",  # TODO: tap-values.yaml file
     ]
 
-    # Carvel tools:
+    # Carvel tools (Path accessible):
     # "sudo cp $HOME/tanzu-cluster-essentials/kapp /usr/local/bin/kapp",
     # "sudo cp $HOME/tanzu-cluster-essentials/imgpkg /usr/local/bin/imgpkg",
 
@@ -309,6 +309,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     # tanzu package available list -n tap-install
     # tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v 1.9.0 -n tap-install
 
+    # Bootstrap CLI context:
     # "echo "source $HOME/kube-ps1.sh" >> ~/.bashrc"
     # "echo "PS1='[\u@\h \W $(kube_ps1)]\$ '" >> ~/.bashrc"
 

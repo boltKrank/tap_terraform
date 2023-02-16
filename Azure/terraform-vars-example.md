@@ -1,5 +1,7 @@
 # Example of variables used (needs to be filled in)
 
+# Check variables.tf - to see which values need to be added.
+
 subscription_id = "xxxxxxxxxxxxxxxxxxxxxxxxx"
 subscription_name = "xxxxxxxxxxxxxxxxxxxxxxxxx"
 tenant_id = "xxxxxxxxxxxxxxxxxxxxxxxxx"
