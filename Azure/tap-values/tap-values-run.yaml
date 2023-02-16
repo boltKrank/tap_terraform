@@ -1,43 +1,53 @@
 profile: run
+
 ceip_policy_disclosed: true
 
 shared:
-  ingress_domain: run.tap.local
-  ingress_issuer: ""
+  ingress_domain: ${DOMAIN_NAME_RUN}
+  ca_cert_data: |
+$(cat certs/ca.crt | sed 's/^/    /g')
 
 contour:
+  infrastructure_provider: azure
+  contour:
+    configFileContents:
+      accesslog-format: json  
   envoy:
     service:
       type: LoadBalancer
-      loadBalancerIP: 20.210.225.114 # run-envoy-ip
+      loadBalancerIP: ${ENVOY_IP_RUN}      
       annotations:
-        service.beta.kubernetes.io/azure-load-balancer-resource-group: <RG_NAME>
-        service.beta.kubernetes.io/azure-load-balancer-tcp-idle-timeout: "5"
-
-appliveview_connector:
-  backend:
-    ingressEnabled: true
-    host: appliveview.view.tap.local
-
-api_auto_registration:
-  tap_gui_url: http://tap-gui.tap.local
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-run
 
 cnrs:
   domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
   default_tls_secret: tanzu-system-ingress/tap-default-tls
 
-ootb_delivery_basic:
-  git_implementation: libgit2
+appliveview_connector:
+  backend:
+    ingressEnabled: true
+    host: appliveview.${DOMAIN_NAME_VIEW}
 
-#package_overlays:
-#- name: contour
-#  secrets:
-#  - name: contour-loadbalancer
-#  - name: contour-tap-default-tls
-#- name: ootb-templates
-#  secrets:
-#  - name: ootb-templates-remove-dot-git
+api_auto_registration:
+  tap_gui_url: https://tap-gui.${DOMAIN_NAME_VIEW}
+  cluster_name: run
+
+accelerator:
+  ingress:
+    include: true    
+    enable_tls: true  
+  tls:
+    secret_name: tap-default-tls
+    namespace: tanzu-system-ingress
+
+package_overlays:
+- name: contour
+  secrets:
+  - name: contour-default-tls
+- name: cnrs
+  secrets:
+  - name: cnrs-https
 
 excluded_packages:
-  - image-policy-webhook.signing.apps.tanzu.vmware.com
-  - eventing.tanzu.vmware.com
+- image-policy-webhook.signing.apps.tanzu.vmware.com
+- eventing.tanzu.vmware.com
