@@ -299,23 +299,23 @@ resource "azurerm_linux_virtual_machine" "main" {
 
   # Install kubectl and docker and Azure CLI
 
-  provisioner "remote-exec" { 
-    inline = [
-      "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-	    "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-      "curl -fsSL https://get.docker.com -o get-docker.sh",
-      "sudo sh get-docker.sh",
-      "sudo groupadd docker",
-      "sudo usermod -aG docker $USER",
-      "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
-    ]
+  # provisioner "remote-exec" { 
+  #   inline = [
+  #     "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
+	#     "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+  #     "curl -fsSL https://get.docker.com -o get-docker.sh",
+  #     "sudo sh get-docker.sh",
+  #     "sudo groupadd docker",
+  #     "sudo usermod -aG docker $USER",
+  #     "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
+  #   ]
 
-    connection {
-      host     = self.public_ip_address
-      user     = self.admin_username
-      password = self.admin_password
-    }
-  }
+  #   connection {
+  #     host     = self.public_ip_address
+  #     user     = self.admin_username
+  #     password = self.admin_password
+  #   }
+  # }
 
   # Currently only view cluster
   # Need a branch for full/multi  
@@ -339,64 +339,64 @@ resource "azurerm_linux_virtual_machine" "main" {
   # }
 
   # Tanzu CLI install
-  provisioner "remote-exec" { 
-    inline = [
-       "cd",
-       "export TANZU_CLI_NO_INIT=true",
-       "mkdir $HOME/tanzu",
-       "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
-       "cd $HOME/tanzu",
-       "export VERSION=v0.25.4", # Change to variable
-       "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
-       "tanzu init",
-       "tanzu version",
-    ]
+  # provisioner "remote-exec" { 
+  #   inline = [
+  #      "cd",
+  #      "export TANZU_CLI_NO_INIT=true",
+  #      "mkdir $HOME/tanzu",
+  #      "tar -xvf tanzu-framework-linux-amd64-v0.25.4.1.tar -C $HOME/tanzu",
+  #      "cd $HOME/tanzu",
+  #      "export VERSION=v0.25.4", # Change to variable
+  #      "sudo install cli/core/$VERSION/tanzu-core-linux_amd64 /usr/local/bin/tanzu",
+  #      "tanzu init",
+  #      "tanzu version",
+  #   ]
 
-    connection {
-      host     = self.public_ip_address
-      user     = self.admin_username
-      password = self.admin_password
-    }
-  }
+  #   connection {
+  #     host     = self.public_ip_address
+  #     user     = self.admin_username
+  #     password = self.admin_password
+  #   }
+  # }
 
-  # Cluster essentials (Rotate for multi-cluster)
-  provisioner "remote-exec" { 
-    inline = [
-       "mkdir $HOME/tanzu-cluster-essentials",
-       "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
-       "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
-       "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
-       "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
-       "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
-       "export TAP_VERSION=1.4.0",
-       "cd $HOME/tanzu-cluster-essentials",
-       "./install.sh --yes",
-    ]
+  # # Cluster essentials (Rotate for multi-cluster)
+  # provisioner "remote-exec" { 
+  #   inline = [
+  #      "mkdir $HOME/tanzu-cluster-essentials",
+  #      "tar -xvf tanzu-cluster-essentials-linux-amd64-1.4.0.tgz -C $HOME/tanzu-cluster-essentials",
+  #      "export INSTALL_BUNDLE=${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle@sha256:5fd527dda8af0e4c25c427e5659559a2ff9b283f6655a335ae08357ff63b8e7f",
+  #      "export INSTALL_REGISTRY_HOSTNAME=${var.tanzu_registry_hostname}",
+  #      "export INSTALL_REGISTRY_USERNAME=${var.tanzu_registry_username}",
+  #      "export INSTALL_REGISTRY_PASSWORD=${var.tanzu_registry_password}",
+  #      "export TAP_VERSION=1.4.0",
+  #      "cd $HOME/tanzu-cluster-essentials",
+  #      "./install.sh --yes",
+  #   ]
 
-    connection {
-      host     = self.public_ip_address
-      user     = self.admin_username
-      password = self.admin_password
-    }
-  }
-
-
-  # TAP install (rotate for multi-cluster)
-  provisioner "remote-exec" { 
-    inline = [
-
-    ]
-
-    connection {
-      host     = self.public_ip_address
-      user     = self.admin_username
-      password = self.admin_password
-    }
-  }
+  #   connection {
+  #     host     = self.public_ip_address
+  #     user     = self.admin_username
+  #     password = self.admin_password
+  #   }
+  # }
 
 
+  # # TAP install (rotate for multi-cluster)
+  # provisioner "remote-exec" { 
+  #   inline = [
 
-}
+  #   ]
+
+  #   connection {
+  #     host     = self.public_ip_address
+  #     user     = self.admin_username
+  #     password = self.admin_password
+  #   }
+  # }
+
+
+
+}  # End bootstrap
 
 
 
