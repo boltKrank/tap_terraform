@@ -328,7 +328,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   provisioner "remote-exec" { 
     inline = [
       "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
-      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name}",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_full_aks_name}",
     ]
     
     connection {
