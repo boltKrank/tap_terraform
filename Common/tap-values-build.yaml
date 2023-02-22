@@ -2,7 +2,7 @@ profile: build
 
 shared:
   image_registry:
-    project_path: "${ACR_NAME}.azurecr.io/tanzu-application-platform"
+    project_path: "siandersontap.azurecr.io/tanzu-application-platform"
     secret:
       name: repository-secret
       namespace: tap-install

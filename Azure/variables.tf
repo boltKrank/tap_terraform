@@ -70,18 +70,32 @@ variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
 
+variable "tap_acr_count" {
+  description = "How many ACRs to build"
+  default = 0
+}
+
 ### AKS Full
+
+variable "tap_full_count" {
+  description = "Number of AKS instances to be made for this type"
+  default = 0
+}
 
 variable "tap_full_aks_name" {
   description = "Name of the View AKS cluster"
 }
-
 
 variable "tap_full_dns_prefix" {
   description = "DNS prefix for TAP view"
 }
 
 ### AKS View
+
+variable "tap_view_count" {
+  description = "Number of AKS instances to be made for this type"
+  default = 0
+}
 
 variable "tap_view_aks_name" {
   description = "Name of the View AKS cluster"
@@ -95,6 +109,11 @@ variable "tap_view_dns_prefix" {
 
 ### AKS Build
 
+variable "tap_build_count" {
+  description = "Number of AKS instances to be made for this type"
+  default = 0
+}
+
 variable "tap_build_aks_name" {
   description = "Name of the build AKS cluster"
 }
@@ -106,6 +125,11 @@ variable "tap_build_dns_prefix" {
 
 
 ### AKS Run
+
+variable "tap_run_count" {
+  description = "Number of AKS instances to be made for this type"
+  default = 0
+}
 
 variable "tap_run_aks_name" {
   description = "Name of the run AKS cluster"

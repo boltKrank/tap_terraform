@@ -16,3 +16,7 @@ You can set TF_LOG to one of the log levels (in order of decreasing verbosity) T
 Setting TF_LOG to JSON outputs logs at the TRACE level or higher, and uses a parseable JSON encoding as the formatting.
 
 ```
+
+## Required specs
+
+[https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.4/tap/prerequisites.html]
