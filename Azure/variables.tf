@@ -64,6 +64,20 @@ variable "tap_version" {
   description = "The version of TAP to install"
 }
 
+variable "pivnet_version" {
+  description = "The version of pivnet CLI to install"
+}
+
+variable "pivnet_api_token" {
+  description = "API Token for Pivnet"
+}
+
+variable "tanzu_cli_version" {
+  description = "Tanzu CLI version"
+}
+
+
+
 ### ACR
 
 variable "tap_acr_name" {
