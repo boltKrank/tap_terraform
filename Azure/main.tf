@@ -47,6 +47,53 @@ resource "azurerm_container_registry" "tap_acr" {
   admin_enabled       = true
 }
 
+# https://gaunacode.com/azure-container-registry-and-aks-with-terraform
+
+# Create service principal read-only for ACR --role acrpull
+
+
+
+# az ad sp create-for-rbac --name $SERVICE_PRINCIPAL_RW_NAME /
+# --scopes $ACR_REGISTRY_ID --years 100 --role acrpush --query password --output tsv
+
+# https://stackoverflow.com/questions/55851777/whats-the-equivalent-terraform-code-for-azure-ad-sp-create-for-rbac
+
+resource "azuread_service_principal" "tap_acr_read_only" {
+  application_id = azurerm_container_registry.tap_acr.id  
+}
+
+resource "azuread_service_principal_password" "tap_acr_read_only" {
+  service_principal_id = "${azuread_service_principal.auth.id}"
+  value                = "${random_string.password.result}"
+  end_date_relative    = "100y"
+}
+
+resource "azurerm_role_assignment" "acrpull_role" {
+  name                             = "tap-ro"
+  scope                            = azurerm_container_registry.tap_acr.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = azuread_service_principal.tap_acr_read_only.id
+}
+
+# Create service principal read-write for ACR --role acrpush
+
+resource "azuread_service_principal" "tap_acr_read_write" {
+  application_id = azurerm_container_registry.tap_acr.id  
+}
+
+resource "azuread_service_principal_password" "tap_acr_read_write" {
+  service_principal_id = "${azuread_service_principal.auth.id}"
+  value                = "${random_string.password.result}"
+  end_date_relative    = "100y"
+}
+
+resource "azurerm_role_assignment" "acrpush_role" {
+  name                             = "tap-rw"
+  scope                            = azurerm_container_registry.tap_acr.id
+  role_definition_name             = "AcrPush"
+  principal_id                     = azuread_service_principal.tap_acr_read_write.id
+}
+
 # # # # # Create AKS TODO: change code to "profile: full" or loop "view,build,run"
 
 # If full == 1 && (view || build || run == 1) -> throw error
@@ -243,6 +290,53 @@ resource "azurerm_linux_virtual_machine" "main" {
     storage_account_type = "Standard_LRS"
     caching              = "ReadWrite"
   }
+
+  # # Run commands:
+    provisioner "remote-exec" { 
+    inline = [
+      "wget https://github.com/pivotal-cf/pivnet-cli/releases/download/v${var.pivnet_version}/pivnet-linux-amd64-${var.pivnet_version}",
+      "chmod 755 pivnet-linux-amd64-${var.pivnet_version}",
+      "sudo mv pivnet-linux-amd64-${var.pivnet_version} /usr/local/bin/pivnet",
+      "pivnet login --api-token=${var.pivnet_api_token}",
+      "pivnet download-product-files --product-slug='tanzu-application-platform' --release-version='${var.tap_version}' --glob='tanzu-framework-linux-amd64-*.tar'",
+      "tar xvf tanzu-framework-*-amd64-*.tar",
+      "sudo install cli/core/v${var.tanzu_cli_version}/tanzu-core-*_amd64 /usr/local/bin/tanzu",
+      "export TANZU_CLI_NO_INIT=true",
+      "tanzu version",
+      "tanzu plugin install --local cli all",
+      "rm -f tanzu-framework-*-amd64-*.tar",
+      "curl -fsSL https://get.docker.com -o get-docker.sh",
+      "sudo sh get-docker.sh",
+      "sudo groupadd docker",
+      "sudo usermod -aG docker $USER",
+      "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
+	    "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+      "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
+    ]
+
+      # "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
+      # "ACR_REGISTRY_ID=$(az acr show --name ${var.tap_acr_name} --query id --output tsv)",
+      # "SERVICE_PRINCIPAL_RO_NAME=tap-ro",
+      # "SERVICE_PRINCIPAL_RO_PASSWORD=$(az ad sp create-for-rbac --name $SERVICE_PRINCIPAL_RO_NAME --scopes $ACR_REGISTRY_ID --years 100 --role acrpull --query password --output tsv)",
+      # "SERVICE_PRINCIPAL_RO_USERNAME=$(az ad sp list --display-name $SERVICE_PRINCIPAL_RO_NAME --query \"[].appId\" --output tsv)",
+      # "docker login ${var.tap_acr_name}.azurecr.io -u $SERVICE_PRINCIPAL_RO_USERNAME -p $SERVICE_PRINCIPAL_RO_PASSWORD",
+      # "SERVICE_PRINCIPAL_RW_NAME=tap-rw",
+      # "SERVICE_PRINCIPAL_RW_PASSWORD=$(az ad sp create-for-rbac --name $SERVICE_PRINCIPAL_RW_NAME --scopes $ACR_REGISTRY_ID --years 100 --role acrpush --query password --output tsv)",
+      # "SERVICE_PRINCIPAL_RW_USERNAME=$(az ad sp list --display-name $SERVICE_PRINCIPAL_RW_NAME --query \"[].appId\" --output tsv)",
+      # "docker login ${var.tap_acr_name}.azurecr.io -u $SERVICE_PRINCIPAL_RW_USERNAME -p $SERVICE_PRINCIPAL_RW_PASSWORD",
+
+
+      # 
+      # "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_full_aks_name}",
+
+    connection {
+      host     = self.public_ip_address
+      user     = self.admin_username
+      password = self.admin_password
+    }
+  }
+
+}  
   
   # Send files:
   # provisioner "file" {
@@ -258,37 +352,18 @@ resource "azurerm_linux_virtual_machine" "main" {
   #   destination = "/home/${var.bootstrap_username}" 
   # }
 
-  # # Run commands:
-  #   provisioner "remote-exec" { 
-  #   inline = [
-  #     "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-	#     "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-  #     "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
-  #     "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id} ",
-  #     "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_full_aks_name}",
-
-  #   ]
-
-  #   connection {
-  #     host     = self.public_ip_address
-  #     user     = self.admin_username
-  #     password = self.admin_password
-  #   }
-  # }
 
 
 
-}  
+
+
 
 
 # End bootstrap
 
 
 
-      # "curl -fsSL https://get.docker.com -o get-docker.sh",
-      # "sudo sh get-docker.sh",
-      # "sudo groupadd docker",
-      # "sudo usermod -aG docker $USER",
+
       # 
 
       #  "cd",
