@@ -70,6 +70,17 @@ variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
 
+### AKS Full
+
+variable "tap_full_aks_name" {
+  description = "Name of the View AKS cluster"
+}
+
+
+variable "tap_full_dns_prefix" {
+  description = "DNS prefix for TAP view"
+}
+
 ### AKS View
 
 variable "tap_view_aks_name" {

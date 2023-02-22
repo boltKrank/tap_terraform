@@ -1,1 +1,82 @@
-# EMPTY FILE
+profile: full
+
+shared:
+  ingress_domain: ""
+  image_registry:
+    project_path: siandersontap.azurecr.io
+    username: siandersontap
+    password: XXX
+
+ceip_policy_disclosed: true
+
+cnrs:
+  domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
+  default_tls_secret: tanzu-system-ingress/cnrs-default-tls
+
+
+supply_chain: basic
+
+ootb_supply_chain_basic:
+  gitops:
+    ssh_secret: git-ssh
+
+contour:
+  infrastructure_provider: azure
+  envoy:
+    service:
+      type: LoadBalancer
+      externalTrafficPolicy: Local
+      annotations:
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: tap
+
+tap_gui:
+  ingressEnabled: true
+  service_type: ClusterIP
+  tls:
+    secretName: cnrs-default-tls
+    namespace: tanzu-system-ingress
+  app_config:
+    catalog:
+      locations:
+      - type: url
+        target: https://github.com/sample-accelerators/tanzu-java-web-app/blob/main/catalog/catalog-info.yaml
+      - type: url
+        target: https://github.com/sample-accelerators/spring-petclinic/blob/accelerator/catalog/catalog-info.yaml
+      - type: url
+        target: https://github.com/tanzu-japan/spring-music/blob/tanzu/catalog/catalog-info.yaml
+
+accelerator:
+  ingress:
+    include: true
+    enable_tls: true
+  tls:
+    secret_name: cnrs-default-tls
+    namespace: tanzu-system-ingress
+  server:
+    service_type: ClusterIP
+
+metadata_store:
+  app_service_type: ClusterIP
+  ingress_enabled: "true"
+
+scanning:
+  metadataStore:
+    url: "" # Disable embedded integration since it's deprecated
+
+package_overlays:
+- name: contour
+  secrets:
+  - name: contour-loadbalancer-ip
+- name: cnrs
+  secrets:
+  - name: cnrs-default-tls
+- name: metadata-store
+  secrets:
+  - name: metadata-store-ingress-tls
+
+excluded_packages:
+- grype.scanning.apps.tanzu.vmware.com
+- learningcenter.tanzu.vmware.com
+- workshops.learningcenter.tanzu.vmware.com
+- eventing.tanzu.vmware.com
+- policy-controller policy.apps.tanzu.vmware.com
