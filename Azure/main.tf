@@ -387,6 +387,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username ${var.tanzu_registry_username} --password ${var.tanzu_registry_password} --server ${var.tanzu_registry_hostname} --export-to-all-namespaces --yes --namespace tap-install",
       "cd",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=contour-default-tls.yaml | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=cnrs-https.yaml | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=metadata-store-read-only-client.yaml | kubectl apply -f-",
     ]
 
     # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-full.yaml -n tap-install",  # TODO: tap-values.yaml file

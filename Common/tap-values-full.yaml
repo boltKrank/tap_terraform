@@ -1,7 +1,7 @@
 profile: full
 
 shared:
-  ingress_domain: ""
+  ingress_domain: "tap.local"
   image_registry:
     project_path: siandersontap.azurecr.io
     username: siandersontap
@@ -63,16 +63,18 @@ scanning:
   metadataStore:
     url: "" # Disable embedded integration since it's deprecated
 
+# 
+
 package_overlays:
 - name: contour
   secrets:
-  - name: contour-loadbalancer-ip
+  - name: contour-loadbalancer-ip # kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=contour-default-tls.yaml | kubectl apply -f-
 - name: cnrs
   secrets:
-  - name: cnrs-default-tls
+  - name: cnrs-https  # kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=cnrs-https.yaml | kubectl apply -f-
 - name: metadata-store
   secrets:
-  - name: metadata-store-ingress-tls
+  - name: metadata-store-read-only-client # kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=metadata-store-read-only-client.yaml | kubectl apply -f-
 
 excluded_packages:
 - grype.scanning.apps.tanzu.vmware.com
