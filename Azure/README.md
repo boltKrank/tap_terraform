@@ -6,7 +6,13 @@
 
 ## terraform verbose output
 
+### Windows:
+
 `$Env:TF_LOG = "TRACE"`
+
+or (in decreasing order of verbosity): DEBUG, INFO, WARN, ERROR
+
+
 
 ```bash
 Terraform has detailed logs that you can enable by setting the TF_LOG environment variable to any value. Enabling this setting causes detailed logs to appear on stderr.

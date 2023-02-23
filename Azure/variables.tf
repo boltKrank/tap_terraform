@@ -84,10 +84,6 @@ variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
 
-variable "tap_acr_count" {
-  description = "How many ACRs to build"
-  default = 0
-}
 
 ### AKS Full
 
