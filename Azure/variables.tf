@@ -84,12 +84,20 @@ variable "tap_acr_name" {
   description = "Name of the ACR registry"
 }
 
+variable "tap_k8s_version" {
+  description = "Version of kubernetes to use"
+}
 
 ### AKS Full
 
 variable "tap_full_count" {
   description = "Number of AKS instances to be made for this type"
   default = 0
+}
+
+variable "tap_full_node_count" {
+  description = "Number of AKS instances to be made for this type"
+  default = "3"
 }
 
 variable "tap_full_aks_name" {
@@ -105,6 +113,11 @@ variable "tap_full_dns_prefix" {
 variable "tap_view_count" {
   description = "Number of AKS instances to be made for this type"
   default = 0
+}
+
+variable "tap_view_node_count" {
+  description = "Initial node count for view cluster"
+  default = "1"
 }
 
 variable "tap_view_aks_name" {
@@ -124,6 +137,11 @@ variable "tap_build_count" {
   default = 0
 }
 
+variable "tap_build_node_count" {
+  description = "Initial node count for build cluster"
+  default = "1"
+}
+
 variable "tap_build_aks_name" {
   description = "Name of the build AKS cluster"
 }
@@ -139,6 +157,10 @@ variable "tap_build_dns_prefix" {
 variable "tap_run_count" {
   description = "Number of AKS instances to be made for this type"
   default = 0
+}
+variable "tap_run_node_count" {
+  description = "Initial node count for run cluster"
+  default = "1"
 }
 
 variable "tap_run_aks_name" {
