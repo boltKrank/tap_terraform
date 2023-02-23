@@ -379,12 +379,14 @@ resource "azurerm_linux_virtual_machine" "main" {
       "az network public-ip create --resource-group ${var.tap_view_aks_name}-rg --location ${var.location} --name envoy-ip --sku Standard --allocation-method static",
       "ENVOY_IP_VIEW=$(az network public-ip show --resource-group ${var.tap_view_aks_name}-rg --name envoy-ip --query ipAddress --output tsv)",
       "az network public-ip list -o table",
-      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
-      "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
-      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
     ]
   }
 }
+
+      # NEED TO RE-ADD:
+      # "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
+      # "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
+      # "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
 
       # OLD_IMGPKG:
       # "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
