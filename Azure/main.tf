@@ -34,6 +34,8 @@ resource "azurerm_subnet" "internal" {
 }
 
 
+# TODO: Seperate subnets and resource groups for clusters
+
 # -------------------------------------- START K8S STUFF ---------------------------------------------------
 
 # # # # Create ACR
@@ -60,11 +62,17 @@ locals {
 
 # Tap build cluster boolean -> count = var.tap_view_cluster
 
+resource "azurerm_resource_group" "tap_full_rg" {
+  # count = var.tap_full_count
+  name = "${var.tap_full_aks_name}-rg"
+  location = var.location
+}
+
 resource "azurerm_kubernetes_cluster" "tap_full_aks" {
   count               = var.tap_full_count
   name                = var.tap_full_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
+  resource_group_name = azurerm_resource_group.tap_full_rg.name
+  location            = azurerm_resource_group.tap_full_rg.location    
   dns_prefix = var.tap_full_dns_prefix
   kubernetes_version = var.tap_k8s_version
   tags                = {
@@ -99,11 +107,17 @@ resource "azurerm_kubernetes_cluster" "tap_full_aks" {
 
 # Tap build cluster boolean -> count = var.tap_view_cluster
 
+resource "azurerm_resource_group" "tap_view_rg" {
+  # count = var.tap_view_count
+  name = "${var.tap_view_aks_name}-rg"
+  location = var.location
+}
+
 resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   count               = var.tap_view_count
   name                = var.tap_view_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
+  resource_group_name = azurerm_resource_group.tap_view_rg.name
+  location            = azurerm_resource_group.tap_view_rg.location    
   dns_prefix = var.tap_view_dns_prefix
   kubernetes_version = var.tap_k8s_version
   tags                = {
@@ -139,11 +153,17 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
 # Tap build cluster boolean -> count = var.tap_build_cluster
 
+resource "azurerm_resource_group" "tap_build_rg" {
+  # count = var.tap_build_count
+  name = "${var.tap_build_aks_name}-rg"
+  location = var.location
+}
+
 resource "azurerm_kubernetes_cluster" "tap_build_aks" {
   count               = var.tap_build_count
   name                = var.tap_build_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
+  resource_group_name = azurerm_resource_group.tap_build_rg.name
+  location            = azurerm_resource_group.tap_build_rg.location    
   dns_prefix = var.tap_build_dns_prefix
   kubernetes_version = var.tap_k8s_version
   tags                = {
@@ -179,11 +199,17 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 
 # Tap run cluster boolean -> count = var.tap_run_cluster
 
+resource "azurerm_resource_group" "tap_run_rg" {
+  # count = var.tap_run_count
+  name = "${var.tap_run_aks_name}-rg"
+  location = var.location  
+}
+
 resource "azurerm_kubernetes_cluster" "tap_run_aks" {
   count               = var.tap_run_count
   name                = var.tap_run_aks_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location    
+  resource_group_name = azurerm_resource_group.tap_run_rg.name
+  location            = azurerm_resource_group.tap_run_rg.location    
   dns_prefix = var.tap_run_dns_prefix
   kubernetes_version = var.tap_k8s_version
   tags                = {
@@ -247,7 +273,9 @@ resource "azurerm_linux_virtual_machine" "main" {
     azurerm_kubernetes_cluster.tap_build_aks,
     azurerm_kubernetes_cluster.tap_run_aks,
     azurerm_kubernetes_cluster.tap_full_aks,
+    azurerm_container_registry.tap_acr,
   ]
+  
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
@@ -321,20 +349,36 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
       "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
       "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
-      "cd tanzu-cluster-essentials",
-      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name} --admin --overwrite-existing",
-      "./install.sh --yes",
-      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
-      "./install.sh --yes",
-      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
-      "./install.sh --yes",
-      "cd",
-      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
-      "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${local.acr_pass} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
+      "cd tanzu-cluster-essentials",           
+      "az aks get-credentials --resource-group ${var.tap_view_aks_name}-rg --name ${var.tap_view_aks_name} --admin --overwrite-existing",
+      "az aks get-credentials --resource-group ${var.tap_build_aks_name}-rg --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
+      "az aks get-credentials --resource-group ${var.tap_run_aks_name}-rg --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
+      "kubectl config get-contexts",
     ]
   }
 }
+
+      # kubectl config use-context view
+      # ./install.sh --yes
+      # kubectl config use-context build
+      # ./install.sh --yes
+      # kubectl config use-context run
+      # ./install.sh --yes
+
+      #QUARENTINE:
+
+      #  "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name} --admin --overwrite-existing",
+      # "./install.sh --yes",
+      # "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
+      # "./install.sh --yes",
+      # "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
+      # "./install.sh --yes",
+  # "cd",
+      # "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
+      # "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${local.acr_pass} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      # "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
+
+
 
      
       # TEST AFTER:

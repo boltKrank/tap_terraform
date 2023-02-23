@@ -90,6 +90,10 @@ variable "tap_k8s_version" {
 
 ### AKS Full
 
+variable "tap_full_resource_group" {
+  description = "Azure resource group for full profile cluster"
+}
+
 variable "tap_full_count" {
   description = "Number of AKS instances to be made for this type"
   default = 0
@@ -109,6 +113,10 @@ variable "tap_full_dns_prefix" {
 }
 
 ### AKS View
+
+variable "tap_view_resource_group" {
+  description = "Azure resource group for view profile cluster"
+}
 
 variable "tap_view_count" {
   description = "Number of AKS instances to be made for this type"
@@ -132,6 +140,10 @@ variable "tap_view_dns_prefix" {
 
 ### AKS Build
 
+variable "tap_build_resource_group" {
+  description = "Azure resource group for build profile cluster"
+}
+
 variable "tap_build_count" {
   description = "Number of AKS instances to be made for this type"
   default = 0
@@ -153,6 +165,10 @@ variable "tap_build_dns_prefix" {
 
 
 ### AKS Run
+
+variable "tap_run_resource_group" {
+  description = "Azure resource group for run profile cluster"
+}
 
 variable "tap_run_count" {
   description = "Number of AKS instances to be made for this type"
