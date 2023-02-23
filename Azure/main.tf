@@ -74,10 +74,10 @@ resource "azurerm_kubernetes_cluster" "tap_full_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2"   # Standard_b4ms (4vcpu, 16Gb mem)
-    node_count = var.tap_full_node_count
+    node_count = "0" #var.tap_full_node_count
     enable_auto_scaling = true
-    min_count = var.tap_full_node_count
-    max_count = 5
+    min_count = "0" #var.tap_full_node_count
+    max_count = "5"
     vnet_subnet_id = azurerm_subnet.internal.id
   }
 
@@ -242,6 +242,12 @@ resource "azurerm_network_interface" "bootstrap_nic" {
 }
 
 resource "azurerm_linux_virtual_machine" "main" {
+  depends_on = [
+    azurerm_kubernetes_cluster.tap_view_aks,
+    azurerm_kubernetes_cluster.tap_build_aks,
+    azurerm_kubernetes_cluster.tap_run_aks,
+    azurerm_kubernetes_cluster.tap_full_aks,
+  ]
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
@@ -339,7 +345,18 @@ resource "azurerm_linux_virtual_machine" "main" {
       # chmod og-rwx ca.key
       # docker run --rm -v ${PWD}/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt
 
-      
+      # Apply service account to build and run:
+      # kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap-build-admin
+      # kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap-run-admin
+
+      # Add tokens to build and run:
+      # kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap-build-admin > tap-gui/cluster-url-build
+      # kubectl -n tap-gui get secret tap-gui-viewer --context tap-build-admin -otemplate='{{index .data "token" | base64decode}}' > tap-gui/cluster-token-build
+      # kubectl -n tap-gui get secret tap-gui-viewer --context tap-build-admin -otemplate='{{index .data "ca.crt"}}'  > tap-gui/cluster-ca-build
+
+      # kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap-run-admin > tap-gui/cluster-url-run
+      # kubectl -n tap-gui get secret tap-gui-viewer --context tap-run-admin -otemplate='{{index .data "token" | base64decode}}' > tap-gui/cluster-token-run
+      # kubectl -n tap-gui get secret tap-gui-viewer --context tap-run-admin -otemplate='{{index .data "ca.crt"}}'  > tap-gui/cluster-ca-run
       
 
       # TODO: Clean up GoLang binary and imgpkg repo
