@@ -39,12 +39,16 @@ resource "azurerm_subnet" "internal" {
 # # # # Create ACR
 
 resource "azurerm_container_registry" "tap_acr" {
-  count               = 0
+  #count               = 0
   name                = var.tap_acr_name
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
   sku                 = "Standard"
-  admin_enabled       = true
+  admin_enabled       = true  
+}
+
+locals {
+  acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)
 }
 
 
@@ -270,8 +274,8 @@ resource "azurerm_linux_virtual_machine" "main" {
   # # Run commands:
     # TEST: "nohup &",
   provisioner "remote-exec" { 
+
     inline = [
-      "script -e -a script_test.txt",
       "wget https://github.com/pivotal-cf/pivnet-cli/releases/download/v${var.pivnet_version}/pivnet-linux-amd64-${var.pivnet_version}",
       "chmod 755 pivnet-linux-amd64-${var.pivnet_version}",
       "sudo mv pivnet-linux-amd64-${var.pivnet_version} /usr/local/bin/pivnet",
@@ -282,61 +286,47 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export TANZU_CLI_NO_INIT=true",
       "tanzu version",
       "tanzu plugin install --local cli all",
-      "rm -f tanzu-framework-*-amd64-*.tar", 
+      "rm -f tanzu-framework-*-amd64-*.tar",
+      "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
+      "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+      "curl -fsSL https://get.docker.com -o get-docker.sh",
+      "sudo sh get-docker.sh",
+      "sudo groupadd docker",
+      "sudo usermod -aG docker $USER",
+      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+      "export PATH=$PATH:/usr/local/go/bin",
+      "git clone https://github.com/boltKrank/imgpkg.git",
+      "cd $HOME/imgpkg",
+      "$HOME/imgpkg/hack/build.sh",
+      "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",      
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
+      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
+      "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
+      "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id}",
+      "echo \"Assigning Network Contributor Roles to AKS clusters\"",
+      "cd",
+      "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
+      "mkdir tanzu-cluster-essentials",
+      "tar xzvf tanzu-cluster-essentials-*-amd64-*.tgz -C tanzu-cluster-essentials",
+      "export INSTALL_BUNDLE=${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version}",
+      "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
+      "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
+      "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
+      "cd tanzu-cluster-essentials",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name} --admin --overwrite-existing",
+      "./install.sh --yes",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
+      "./install.sh --yes",
+      "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
+      "./install.sh --yes",
+      "cd",
+      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
+      "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${local.acr_pass} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
     ]
-
-    # inline = [
-    #   "wget https://github.com/pivotal-cf/pivnet-cli/releases/download/v${var.pivnet_version}/pivnet-linux-amd64-${var.pivnet_version}",
-    #   "chmod 755 pivnet-linux-amd64-${var.pivnet_version}",
-    #   "sudo mv pivnet-linux-amd64-${var.pivnet_version} /usr/local/bin/pivnet",
-    #   "pivnet login --api-token=${var.pivnet_api_token}",
-    #   "pivnet download-product-files --product-slug='tanzu-application-platform' --release-version='${var.tap_version}' --glob='tanzu-framework-linux-amd64-*.tar'",
-    #   "tar xvf tanzu-framework-*-amd64-*.tar",
-    #   "sudo install cli/core/v${var.tanzu_cli_version}/tanzu-core-*_amd64 /usr/local/bin/tanzu",
-    #   "export TANZU_CLI_NO_INIT=true",
-    #   "tanzu version",
-    #   "tanzu plugin install --local cli all",
-    #   "rm -f tanzu-framework-*-amd64-*.tar",
-    #   "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-    #   "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-    #   "curl -fsSL https://get.docker.com -o get-docker.sh",
-    #   "sudo sh get-docker.sh",
-    #   "sudo groupadd docker",
-    #   "sudo usermod -aG docker $USER",
-    #   "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
-    #   "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
-    #   "export PATH=$PATH:/usr/local/go/bin",
-    #   "git clone https://github.com/boltKrank/imgpkg.git",
-    #   "cd $HOME/imgpkg",
-    #   "$HOME/imgpkg/hack/build.sh",
-    #   "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",      
-    #   "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${azurerm_container_registry.tap_acr.admin_password}",
-    #   "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",
-    #   "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
-    #   "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
-    #   "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
-    #   "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id}",
-    #   "echo \"Assigning Network Contributor Roles to AKS clusters\"",
-    #   "cd",
-    #   "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
-    #   "mkdir tanzu-cluster-essentials",
-    #   "tar xzvf tanzu-cluster-essentials-*-amd64-*.tgz -C tanzu-cluster-essentials",
-    #   "export INSTALL_BUNDLE=${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version}",
-    #   "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
-    #   "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
-    #   "export INSTALL_REGISTRY_PASSWORD=${azurerm_container_registry.tap_acr.admin_password}",
-    #   "cd tanzu-cluster-essentials",
-    #   "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_view_aks_name} --admin --overwrite-existing",
-    #   "./install.sh --yes",
-    #   "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
-    #   "./install.sh --yes",
-    #   "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
-    #   "./install.sh --yes",
-    #   "cd",
-    #   "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
-    #   "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${azurerm_container_registry.tap_acr.admin_password} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
-    #   "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
-    # ]
   }
 }
 
