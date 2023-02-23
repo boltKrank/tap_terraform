@@ -41,7 +41,7 @@ resource "azurerm_subnet" "internal" {
 # # # # Create ACR
 
 resource "azurerm_container_registry" "tap_acr" {
-  #count               = 0
+  count               = 0
   name                = var.tap_acr_name
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
@@ -50,7 +50,7 @@ resource "azurerm_container_registry" "tap_acr" {
 }
 
 locals {
-  acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)
+  acr_pass = "IidZRIfCirvXQAYr9PwBl1Hrfs34zWcGaG8jn/OaTx+ACRBrOCwE"
 }
 
 
@@ -305,11 +305,19 @@ resource "azurerm_linux_virtual_machine" "main" {
     password = self.admin_password
   }
 
+    # Send files:
+  provisioner "file" {  
+    source = "${path.cwd}/../Common/" 
+    destination = "/home/${var.bootstrap_username}/" 
+  }
+
   # # Run commands:
     # TEST: "nohup &",
   provisioner "remote-exec" { 
 
     inline = [
+      "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",   
+      "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id}",
       "wget https://github.com/pivotal-cf/pivnet-cli/releases/download/v${var.pivnet_version}/pivnet-linux-amd64-${var.pivnet_version}",
       "chmod 755 pivnet-linux-amd64-${var.pivnet_version}",
       "sudo mv pivnet-linux-amd64-${var.pivnet_version} /usr/local/bin/pivnet",
@@ -327,19 +335,8 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo sh get-docker.sh",
       "sudo groupadd docker",
       "sudo usermod -aG docker $USER",
-      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
-      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
-      "export PATH=$PATH:/usr/local/go/bin",
-      "git clone https://github.com/boltKrank/imgpkg.git",
-      "cd $HOME/imgpkg",
-      "$HOME/imgpkg/hack/build.sh",
-      "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",      
       "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
-      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",
-      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
-      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
-      "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",
-      "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id}",
+      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",               
       "echo \"Assigning Network Contributor Roles to AKS clusters\"",
       "cd",
       "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
@@ -354,9 +351,56 @@ resource "azurerm_linux_virtual_machine" "main" {
       "az aks get-credentials --resource-group ${var.tap_build_aks_name}-rg --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
       "az aks get-credentials --resource-group ${var.tap_run_aks_name}-rg --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
       "kubectl config get-contexts",
+      "kubectl config use-context tap_view-admin",
+      "./install.sh --yes",
+      "kubectl config use-context tap_build-admin",
+      "./install.sh --yes",
+      "kubectl config use-context tap_run-admin",
+      "./install.sh --yes",
+      "cd",
+      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
+      "mkdir -p certs",
+      "rm -f certs/*",
+      "docker run --rm -v $HOME/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
+      "sudo chmod og-rwx certs/ca.key",
+      "docker run --rm -v $HOME/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",
+      "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap_build-admin",
+      "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap_run-admin",
+      "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap_build-admin > tap-gui/cluster-url-build",
+      "kubectl -n tap-gui get secret tap-gui-viewer --context tap_build-admin -otemplate='{{index .data \"token\" | base64decode}}' > tap-gui/cluster-token-build",
+      "kubectl -n tap-gui get secret tap-gui-viewer --context tap_build-admin -otemplate='{{index .data \"ca.crt\"}}'  > tap-gui/cluster-ca-build",
+      "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap_run-admin > tap-gui/cluster-url-run",
+      "kubectl -n tap-gui get secret tap-gui-viewer --context tap_run-admin -otemplate='{{index .data \"token\" | base64decode}}' > tap-gui/cluster-token-run",
+      "kubectl -n tap-gui get secret tap-gui-viewer --context tap_run-admin -otemplate='{{index .data \"ca.crt\"}}'  > tap-gui/cluster-ca-run",
+      "kubectl config use-context tap_view-admin",
+      "kubectl create ns tap-install",
+      "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
+      "az network public-ip create --resource-group ${var.tap_view_aks_name}-rg --location ${var.location} --name envoy-ip --sku Standard --allocation-method static",
+      "ENVOY_IP_VIEW=$(az network public-ip show --resource-group ${var.tap_view_aks_name}-rg --name envoy-ip --query ipAddress --output tsv)",
+      "az network public-ip list -o table",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
     ]
   }
 }
+
+      # OLD_IMGPKG:
+      # "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+      # "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+      # "export PATH=$PATH:/usr/local/go/bin",
+      # "git clone https://github.com/boltKrank/imgpkg.git",
+      # "cd $HOME/imgpkg",
+      # "$HOME/imgpkg/hack/build.sh",
+      # "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",      
+      
+
+      # ORIGINAL:
+      # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
+      # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
+      
+
 
       # kubectl config use-context view
       # ./install.sh --yes
@@ -457,19 +501,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       # "az aks get-credentials --resource-group ${var.resource_group} --name ${var.tap_full_aks_name}",
 
   
-  # Send files:
-  # provisioner "file" {
-  #   connection {
-  #     type = "ssh"
-  #     user = var.bootstrap_username
-  #     password = var.bootstrap_password
-  #     host = azurerm_public_ip.bootstrap_pip.ip_address
-  #     agent    = false
-  #     timeout  = "10m"
-  #   }
-  #   source = "${path.cwd}/../binaries/" 
-  #   destination = "/home/${var.bootstrap_username}" 
-  # }
+
 
 
 
