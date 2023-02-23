@@ -92,6 +92,7 @@ variable "tap_k8s_version" {
 
 variable "tap_full_resource_group" {
   description = "Azure resource group for full profile cluster"
+  default = "tap_full_rg"
 }
 
 variable "tap_full_count" {
@@ -116,6 +117,7 @@ variable "tap_full_dns_prefix" {
 
 variable "tap_view_resource_group" {
   description = "Azure resource group for view profile cluster"
+  default = "tap_view_rg"
 }
 
 variable "tap_view_count" {
@@ -142,6 +144,7 @@ variable "tap_view_dns_prefix" {
 
 variable "tap_build_resource_group" {
   description = "Azure resource group for build profile cluster"
+  default = "tap_build_rg"
 }
 
 variable "tap_build_count" {
@@ -168,6 +171,7 @@ variable "tap_build_dns_prefix" {
 
 variable "tap_run_resource_group" {
   description = "Azure resource group for run profile cluster"
+  default = "tap_build_run"
 }
 
 variable "tap_run_count" {

@@ -62,44 +62,44 @@ locals {
 
 # Tap build cluster boolean -> count = var.tap_view_cluster
 
-resource "azurerm_resource_group" "tap_full_rg" {
-  # count = var.tap_full_count
-  name = "${var.tap_full_aks_name}-rg"
-  location = var.location
-}
+# resource "azurerm_resource_group" "tap_full_rg" {
+#   # count = var.tap_full_count
+#   name = "${var.tap_full_aks_name}-rg"
+#   location = var.location
+# }
 
-resource "azurerm_kubernetes_cluster" "tap_full_aks" {
-  count               = var.tap_full_count
-  name                = var.tap_full_aks_name
-  resource_group_name = azurerm_resource_group.tap_full_rg.name
-  location            = azurerm_resource_group.tap_full_rg.location    
-  dns_prefix = var.tap_full_dns_prefix
-  kubernetes_version = var.tap_k8s_version
-  tags                = {
-    Environment = "Development"
-  }
+# resource "azurerm_kubernetes_cluster" "tap_full_aks" {
+#   count               = var.tap_full_count
+#   name                = var.tap_full_aks_name
+#   resource_group_name = azurerm_resource_group.tap_full_rg.name
+#   location            = azurerm_resource_group.tap_full_rg.location    
+#   dns_prefix = var.tap_full_dns_prefix
+#   kubernetes_version = var.tap_k8s_version
+#   tags                = {
+#     Environment = "Development"
+#   }
 
-  default_node_pool {
-    name       = "agentpool"
-    vm_size    = "standard_f4s_v2"   # Standard_b4ms (4vcpu, 16Gb mem)
-    node_count = "0" #var.tap_full_node_count
-    enable_auto_scaling = true
-    min_count = "0" #var.tap_full_node_count
-    max_count = "5"
-    vnet_subnet_id = azurerm_subnet.internal.id
-  }
+#   default_node_pool {
+#     name       = "agentpool"
+#     vm_size    = "standard_f4s_v2"   # Standard_b4ms (4vcpu, 16Gb mem)
+#     node_count = "0" #var.tap_full_node_count
+#     enable_auto_scaling = true
+#     min_count = "0" #var.tap_full_node_count
+#     max_count = "5"
+#     vnet_subnet_id = azurerm_subnet.internal.id
+#   }
 
-  service_principal {
-    client_id = var.sp_client_id
-    client_secret = var.sp_secret
-  }
+#   service_principal {
+#     client_id = var.sp_client_id
+#     client_secret = var.sp_secret
+#   }
 
-  network_profile {
-    network_plugin    = "kubenet"
-    load_balancer_sku = "standard"
-  }
+#   network_profile {
+#     network_plugin    = "kubenet"
+#     load_balancer_sku = "standard"
+#   }
 
-}
+# }
 
 # TAP FULL END
 
@@ -268,14 +268,14 @@ resource "azurerm_network_interface" "bootstrap_nic" {
 }
 
 resource "azurerm_linux_virtual_machine" "main" {
-  depends_on = [
+  # NOTE: azurerm_kubernetes_cluster.tap_full_aks,
+  depends_on = [    
     azurerm_kubernetes_cluster.tap_view_aks,
     azurerm_kubernetes_cluster.tap_build_aks,
     azurerm_kubernetes_cluster.tap_run_aks,
-    azurerm_kubernetes_cluster.tap_full_aks,
     azurerm_container_registry.tap_acr,
   ]
-  
+
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
