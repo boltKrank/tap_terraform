@@ -415,11 +415,13 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
+      "cd",     
     ]
   }
 }
 
       # TO RETURN:
+      # "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} tap-values-view.yaml",
       # "export TLS_CERT=$(cat certs/ca.crt | sed 's/^/    /g')",
       # "export TLS_KEY=$(cat certs/ca.key | sed 's/^/    /g')",   
 

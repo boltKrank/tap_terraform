@@ -6,7 +6,8 @@ ceip_policy_disclosed: true
 
 shared:
   ingress_domain: ${DOMAIN_NAME_VIEW}
-  ca_cert_data: $(cat tls-cert-sed.txt)
+  ca_cert_data: |
+$(cat tls-cert-sed.txt)
 
 contour:
   infrastructure_provider: azure

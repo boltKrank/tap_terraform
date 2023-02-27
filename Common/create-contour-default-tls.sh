@@ -1,3 +1,4 @@
+#!/bin/bash
 cat <<EOF > overlays/view/contour-default-tls.yaml                                                                                                                                                                                                                          
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
@@ -10,8 +11,10 @@ metadata:
   namespace: #@ namespace
 type: kubernetes.io/tls
 stringData:
-  tls.crt: $(cat tls-cert-sed.txt)
-  tls.key: $(cat tls-key-sed.txt)
+  tls.crt: | 
+$(cat tls-cert-sed.txt)
+  tls.key: |
+$(cat tls-key-sed.txt)
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
