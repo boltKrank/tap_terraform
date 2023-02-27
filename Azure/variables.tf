@@ -68,6 +68,10 @@ variable "tap_version" {
   description = "The version of TAP to install"
 }
 
+variable "tbs_version" {
+  description = "The version of Tanzu Build Service to install"
+}
+
 variable "pivnet_version" {
   description = "The version of pivnet CLI to install"
 }

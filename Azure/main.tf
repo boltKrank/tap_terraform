@@ -116,14 +116,6 @@ resource "azurerm_resource_group" "tap_view_rg" {
 }
 
 
-resource "azurerm_public_ip" "view_pip" {
-  name                = "envoy-p"
-  resource_group_name = azurerm_resource_group.tap_view_rg.name
-  location            = azurerm_resource_group.tap_view_rg.location
-  sku                 = "Standard"
-  allocation_method   = "Static"
-}
-
 resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   # count               = var.tap_view_count
   name                = var.tap_view_aks_name
@@ -142,7 +134,7 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
     enable_auto_scaling = true
     min_count = var.tap_view_node_count
     max_count = 3
-    vnet_subnet_id = azurerm_subnet.internal.id
+    # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -156,6 +148,19 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   }
 
 }
+
+resource "azurerm_public_ip" "tap-view-pip" {
+    depends_on = [          
+      azurerm_resource_group.tap_view_rg,
+      azurerm_kubernetes_cluster.tap_view_aks, 
+  ]
+  name                = "envoy-ip"
+  resource_group_name = azurerm_resource_group.tap_view_rg.name
+  location            = azurerm_resource_group.tap_view_rg.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
 
 
 # TAP VIEW END
@@ -188,7 +193,7 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
     enable_auto_scaling = true
     min_count = var.tap_build_node_count
     max_count = 3
-    vnet_subnet_id = azurerm_subnet.internal.id
+   # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -236,7 +241,7 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
     enable_auto_scaling = true
     min_count = var.tap_run_node_count
     max_count = 3
-    vnet_subnet_id = azurerm_subnet.internal.id
+    # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -398,8 +403,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
-      "export ENVOY_IP_VIEW=${azurerm_public_ip.view_pip.ip_address}",
+      "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-view-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
+      "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}-rg",
       "cd",
       "mkdir -p overlays/view",
       "cd",
@@ -416,7 +422,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
       "cd",  
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install --poll-timeout 20m0s",
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install",   
       "kubectl get packageinstall -n tap-install",
       "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
       "tanzu package installed update -n tap-install tap -f tap-values-view.yaml",
@@ -424,10 +430,30 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl config use-context tap-build-admin",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
+      "tanzu package repository add tbs-full-deps-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",
+      "cd",
+      "chmod +x create-repository-secret.sh",
+      "./create-repository-secret.sh ${var.tap_acr_name}.azurecr.io ${var.tap_acr_name} ${local.acr_pass}",
+      "cd",
+      "chmod 755create-metadata-store-secrets-build.sh; ./create-metadata-store-secrets-build.sh",
+      "kubectl -n tap-install create secret generic metadata-store-secrets -o yaml --dry-run=client --from-file=overlays/build/metadata-store-secrets.yaml | kubectl apply -f-",
+      "cd",
+      "export ACR_NAME=${var.tap_acr_name}",
+      "chmod 755 create-tap-values-build.sh; ./create-tap-values-build.sh",
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install",   
+      "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install",
+      "tanzu package installed list -n tap-install ",
     ]
   }
 }
+      # TEMP DELETE:
+      /* 
+
+      
+
+ */
+
 
       # TO RETURN:
       # "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} tap-values-view.yaml",
