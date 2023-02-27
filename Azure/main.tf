@@ -325,6 +325,18 @@ resource "azurerm_linux_virtual_machine" "main" {
     destination = "/home/${var.bootstrap_username}/" 
   }
 
+
+  # Seperate shell so user inherits the groupadd in the following shell to run docker as non-root
+  provisioner "remote-exec" {
+    inline = [
+      "curl -fsSL https://get.docker.com -o get-docker.sh",
+      "sudo sh get-docker.sh",
+      "sudo groupadd docker",
+      "sudo usermod -aG docker $USER",
+    ]
+
+  }
+
   # # Run commands:
     # TEST: "nohup &",
   provisioner "remote-exec" { 
@@ -345,14 +357,8 @@ resource "azurerm_linux_virtual_machine" "main" {
       "rm -f tanzu-framework-*-amd64-*.tar",
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
       "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-      "curl -fsSL https://get.docker.com -o get-docker.sh",
-      "sudo sh get-docker.sh",
-      "sudo groupadd docker",
-      "sudo usermod -aG docker $USER",
-      "newgrp docker",
       "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
       "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",               
-      "echo \"Assigning Network Contributor Roles to AKS clusters\"",
       "cd",
       "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
       "mkdir tanzu-cluster-essentials",
@@ -374,20 +380,18 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes", 
       "cd",
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
-      "mkdir -p $HOME/certs",
+      "mkdir -p certs",
       "rm -f certs/*",
       "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chown $USER:$USER certs/*",
       "chmod og-rwx certs/ca.key",
-      "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",
-      "sudo chown $USER:$USER certs/*",
-      "cat certs/*",
+      "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",            
       "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context ${var.tap_build_aks_name}-admin",
       "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context ${var.tap_run_aks_name}-admin",
       "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context ${var.tap_build_aks_name}-admin > $HOME/tap-gui/cluster-url-build",
       "kubectl -n tap-gui get secret tap-gui-viewer --context ${var.tap_build_aks_name}-admin -otemplate='{{index .data \"token\" | base64decode}}' > $HOME/tap-gui/cluster-token-build",
       "kubectl -n tap-gui get secret tap-gui-viewer --context ${var.tap_build_aks_name}-admin -otemplate='{{index .data \"ca.crt\"}}'  > $HOME/tap-gui/cluster-ca-build",
-      "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap_run-admin > $HOME/tap-gui/cluster-url-run",
+      "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context ${var.tap_run_aks_name}-admin > $HOME/tap-gui/cluster-url-run",
       "kubectl -n tap-gui get secret tap-gui-viewer --context ${var.tap_run_aks_name}-admin -otemplate='{{index .data \"token\" | base64decode}}' > $HOME/tap-gui/cluster-token-run",
       "kubectl -n tap-gui get secret tap-gui-viewer --context ${var.tap_run_aks_name}-admin -otemplate='{{index .data \"ca.crt\"}}'  > $HOME/tap-gui/cluster-ca-run",
       "kubectl config use-context ${var.tap_view_aks_name}-admin",
@@ -396,11 +400,13 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
       "export ENVOY_IP_VIEW=${azurerm_public_ip.view_pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
-      "az network public-ip list -o table",
       "cd",
       "mkdir -p overlays/view",
-      "chmod 755 *.sh",
+      "cd",
+      "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
+      "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",
       "chmod 755 create-contour-default-tls.sh; ./create-contour-default-tls.sh",
+      "cat overlays/view/contour-default-tls.yaml",
       "chmod 755 create-tap-gui-db.sh; ./create-tap-gui-db.sh",
       "chmod 755 create-metadata-store-client.sh; ./create-metadata-store-client.sh",
       "cd",
@@ -408,12 +414,19 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
       "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
+      "cat tap-values-view.yaml",
     ]
   }
 }
 
+      # TO RETURN:
+      # "export TLS_CERT=$(cat certs/ca.crt | sed 's/^/    /g')",
+      # "export TLS_KEY=$(cat certs/ca.key | sed 's/^/    /g')",   
+
       # NEXT TO DO:
       # tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install --wait=false
+      # ./tap-install ${var.tap_version} tap-values-view.yaml
+      # ./tbs-install ${var.tbs_version} 
       # tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-view.yaml -n tap-install --wait=false
       # "sed -i.bak "s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/" tap-values-view.yaml"
       # "tanzu package installed update -n tap-install tap -f tap-values-view.yaml"

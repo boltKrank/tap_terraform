@@ -1,3 +1,5 @@
+#!/bin/bash
+
 cat <<EOF > $HOME/overlays/view/metadata-store-read-only-client.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -1,3 +1,4 @@
+#!/bin/bash
 cat <<EOF > tap-values-view.yaml
 profile: view
 
@@ -5,8 +6,7 @@ ceip_policy_disclosed: true
 
 shared:
   ingress_domain: ${DOMAIN_NAME_VIEW}
-  ca_cert_data: |
-$(cat certs/ca.crt | sed 's/^/    /g')
+  ca_cert_data: $(cat tls-cert-sed.txt)
 
 contour:
   infrastructure_provider: azure

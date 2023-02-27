@@ -1,4 +1,4 @@
-cat <<EOF > $HOME/overlays/view/contour-default-tls.yaml                                                                                                                                                                                                                          
+cat <<EOF > overlays/view/contour-default-tls.yaml                                                                                                                                                                                                                          
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ namespace = data.values.namespace
@@ -10,10 +10,8 @@ metadata:
   namespace: #@ namespace
 type: kubernetes.io/tls
 stringData:
-  tls.crt: |
-$(cat $HOME/certs/ca.crt | sed 's/^/    /g')
-  tls.key: |
-$(cat $HOME/certs/ca.key.copy | sed 's/^/    /g')
+  tls.crt: $(cat tls-cert-sed.txt)
+  tls.key: $(cat tls-key-sed.txt)
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
