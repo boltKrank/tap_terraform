@@ -107,10 +107,21 @@ locals {
 
 # Tap build cluster boolean -> count = var.tap_view_cluster
 
+# TODO: view cluster Public IP
+
 resource "azurerm_resource_group" "tap_view_rg" {
   # count = var.tap_view_count
   name = "${var.tap_view_aks_name}-rg"
   location = var.location
+}
+
+
+resource "azurerm_public_ip" "view_pip" {
+  name                = "envoy-p"
+  resource_group_name = azurerm_resource_group.tap_view_rg.name
+  location            = azurerm_resource_group.tap_view_rg.location
+  sku                 = "Standard"
+  allocation_method   = "Static"
 }
 
 resource "azurerm_kubernetes_cluster" "tap_view_aks" {
@@ -118,8 +129,8 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   name                = var.tap_view_aks_name
   resource_group_name = azurerm_resource_group.tap_view_rg.name
   location            = azurerm_resource_group.tap_view_rg.location    
-  dns_prefix = var.tap_view_dns_prefix
-  kubernetes_version = var.tap_k8s_version
+  dns_prefix          = var.tap_view_dns_prefix
+  kubernetes_version  = var.tap_k8s_version
   tags                = {
     Environment = "Development"
   }
@@ -198,6 +209,8 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 # # TAP RUN START
 
 # Tap run cluster boolean -> count = var.tap_run_cluster
+
+# TODO: run cluster Public IP
 
 resource "azurerm_resource_group" "tap_run_rg" {
   # count = var.tap_run_count
@@ -356,14 +369,16 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl config use-context tap_build-admin",
       "./install.sh --yes",
       "kubectl config use-context tap_run-admin",
-      "./install.sh --yes",
+      "./install.sh --yes", 
       "cd",
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
       "mkdir -p certs",
       "rm -f certs/*",
-      "docker run --rm -v $HOME/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
+      "docker run --rm -v $HOME/certs:/certs hitch openssl req -new -nodes -out $HOME/certs/ca.csr -keyout $HOME/certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chmod og-rwx certs/ca.key",
-      "docker run --rm -v $HOME/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",
+      "docker run --rm -v $HOME/certs:/certs hitch openssl x509 -req -in $HOME/certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey $HOME/certs/ca.key -out /certs/ca.crt",
+      "sudo cp $HOME/certs/ca.key $HOME/certs/ca.key.copy",
+      "sudo chmod 777 $HOME/certs/ca.key.copy",
       "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap_build-admin",
       "kubectl apply -f tap-gui/tap-gui-viewer-service-account-rbac.yaml --context tap_run-admin",
       "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --context tap_build-admin > tap-gui/cluster-url-build",
@@ -375,18 +390,31 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl config use-context tap_view-admin",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
-      "az network public-ip create --resource-group ${var.tap_view_aks_name}-rg --location ${var.location} --name envoy-ip --sku Standard --allocation-method static",
-      "ENVOY_IP_VIEW=$(az network public-ip show --resource-group ${var.tap_view_aks_name}-rg --name envoy-ip --query ipAddress --output tsv)",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
+      "export ENVOY_IP_VIEW=${azurerm_public_ip.view_pip.ip_address}",
+      "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
       "az network public-ip list -o table",
+      "cd $HOME/overlays/view",
+      "chmod 755 *.sh",
+      "$HOME/overlays/view/create-contour-default-tls.sh",      
+      "$HOME/overlays/view/create-tap-gui-db.sh",
+      "create-metadata-store-client.sh",
+      "cd",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
+      "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
     ]
   }
 }
 
+      # NEXT TO DO:
+      # tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install --wait=false
+
+      # Removed
+
       # NEED TO RE-ADD:
-      # "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
-      # "kubectl -n tap-install create secret generic tap-gui-db -o yaml --dry-run=client --from-file=overlays/view/tap-gui-db.yaml | kubectl apply -f- ",
-      # "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
+
 
       # OLD_IMGPKG:
       # "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
@@ -403,13 +431,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
       
 
-
-      # kubectl config use-context view
-      # ./install.sh --yes
-      # kubectl config use-context build
-      # ./install.sh --yes
-      # kubectl config use-context run
-      # ./install.sh --yes
+ 
 
       #QUARENTINE:
 

@@ -1,3 +1,4 @@
+cat <<EOF > $HOME/overlays/view/contour-default-tls.yaml                                                                                                                                                                                                                          
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ namespace = data.values.namespace
@@ -10,9 +11,9 @@ metadata:
 type: kubernetes.io/tls
 stringData:
   tls.crt: |
-$(cat certs/ca.crt | sed 's/^/    /g')
+$(cat $HOME/certs/ca.crt | sed 's/^/    /g')
   tls.key: |
-$(cat certs/ca.key | sed 's/^/    /g')
+$(cat $HOME/certs/ca.key.copy | sed 's/^/    /g')
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -46,3 +47,4 @@ spec:
   - secretName: tap-default-tls
     targetNamespaces:
     - "*"
+EOF

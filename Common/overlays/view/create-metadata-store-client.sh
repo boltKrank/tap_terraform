@@ -1,3 +1,4 @@
+cat <<EOF > $HOME/overlays/view/metadata-store-read-only-client.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -37,3 +38,4 @@ rules:
   resources: [ "secrets" ]
   resourceNames: [ "metadata-store-read-client" ]
   verbs: [ "get" ]
+EOF

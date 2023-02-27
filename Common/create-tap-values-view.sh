@@ -1,3 +1,4 @@
+cat <<EOF > tap-values-view.yaml
 profile: view
 
 ceip_policy_disclosed: true
@@ -93,3 +94,4 @@ excluded_packages:
 - learningcenter.tanzu.vmware.com
 - workshops.learningcenter.tanzu.vmware.com
 - api-portal.tanzu.vmware.com
+EOF

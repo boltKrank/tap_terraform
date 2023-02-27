@@ -1,3 +1,4 @@
+cat <<'EOF' > $HOME/overlays/view/tap-gui-db.yaml
 #@ load("@ytt:overlay", "overlay")
 #@overlay/match by=overlay.subset({"kind":"Deployment","metadata":{"name":"server"}})
 ---
@@ -99,3 +100,4 @@ spec:
     stringData:
       POSTGRES_USER: tap-gui
       POSTGRES_PASSWORD: $(value)
+EOF

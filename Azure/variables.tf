@@ -35,6 +35,10 @@ variable "location" {
   description = "The Azure Region in which all resources should be created."
 }
 
+variable "domain_name" {
+  description = "Domain name use for accessing."
+}
+
 ### Bootstrap box
 
 variable "bootstrap_username" {
