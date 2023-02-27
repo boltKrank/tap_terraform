@@ -415,7 +415,16 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client   --from-file=overlays/view/metadata-store-read-only-client.yaml | kubectl apply -f- ",
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
-      "cd",     
+      "cd",  
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install --poll-timeout 20m0s",
+      "kubectl get packageinstall -n tap-install",
+      "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
+      "tanzu package installed update -n tap-install tap -f tap-values-view.yaml",
+      "kubectl get httpproxy -A",
+      "kubectl config use-context tap-build-admin",
+      "kubectl create ns tap-install",
+      "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
     ]
   }
 }
