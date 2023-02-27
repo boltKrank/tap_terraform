@@ -1,9 +1,13 @@
-output "resource_group_name" {
-  value = azurerm_resource_group.tap_resource_group.name
-}
-
 output "bootstrap_public_ip_address" {
   value = azurerm_public_ip.bootstrap_pip.ip_address
+}
+
+output "tap-view-ip" {
+  value = azurerm_public_ip.tap-view-pip.ip_address
+}
+
+output "tap-run-ip" {
+  value = azurerm_public_ip.tap-run-pip.ip_address
 }
 
 # output "tls_private_key" {

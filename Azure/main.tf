@@ -151,11 +151,10 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
 resource "azurerm_public_ip" "tap-view-pip" {
     depends_on = [          
-      azurerm_resource_group.tap_view_rg,
       azurerm_kubernetes_cluster.tap_view_aks, 
   ]
   name                = "envoy-ip"
-  resource_group_name = azurerm_resource_group.tap_view_rg.name
+  resource_group_name = "${azurerm_kubernetes_cluster.tap_view_aks.node_resource_group}" 
   location            = azurerm_resource_group.tap_view_rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
@@ -254,6 +253,17 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
     load_balancer_sku = "standard"
   }
 
+}
+
+resource "azurerm_public_ip" "tap-run-pip" {
+    depends_on = [          
+      azurerm_kubernetes_cluster.tap_run_aks, 
+  ]
+  name                = "envoy-ip"
+  resource_group_name = "${azurerm_kubernetes_cluster.tap_run_aks.node_resource_group}" 
+  location            = azurerm_resource_group.tap_run_rg.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
 }
 
 
@@ -422,7 +432,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
       "cd",  
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install",   
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install --poll-timeout 20m",   
       "kubectl get packageinstall -n tap-install",
       "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
       "tanzu package installed update -n tap-install tap -f tap-values-view.yaml",
@@ -431,7 +441,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
-      "tanzu package repository add tbs-full-deps-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",
+      "tanzu package repository add tbs-full-deps-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",
       "cd",
       "chmod +x create-repository-secret.sh",
       "./create-repository-secret.sh ${var.tap_acr_name}.azurecr.io ${var.tap_acr_name} ${local.acr_pass}",
@@ -441,12 +451,22 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cd",
       "export ACR_NAME=${var.tap_acr_name}",
       "chmod 755 create-tap-values-build.sh; ./create-tap-values-build.sh",
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install",   
-      "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install",
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install --poll-timeout 20m",   
+      "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install --poll-timeout 20m",
       "tanzu package installed list -n tap-install ",
+      "kubectl get clusterbuilder",
+      "kubectl config use-context tap-run-admin",
+      "kubectl create ns tap-install",
+      "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",  
+      "export ENVOY_IP_RUN=${azurerm_public_ip.tap-run-pip.ip_address}",
+      "az network public-ip list -o table",
+      "export DOMAIN_NAME_RUN=${var.tap_run_dns_prefix}.$(echo $ENVOY_IP_RUN | sed 's/\\./-/g').${var.domain_name}",
     ]
   }
 }
+
+
       # TEMP DELETE:
       /* 
 
