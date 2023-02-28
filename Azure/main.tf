@@ -115,8 +115,19 @@ resource "azurerm_resource_group" "tap_view_rg" {
   location = var.location
 }
 
+resource "azurerm_public_ip" "tap-view-pip" {
+    
+  name                = "envoy-ip" 
+  resource_group_name = var.tap_view_aks_name
+  location            = azurerm_resource_group.tap_view_rg.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+} 
 
 resource "azurerm_kubernetes_cluster" "tap_view_aks" {
+  depends_on = [
+    azurerm_public_ip.tap-view-pip,
+  ]
   # count               = var.tap_view_count
   name                = var.tap_view_aks_name
   resource_group_name = azurerm_resource_group.tap_view_rg.name
@@ -149,16 +160,20 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
 }
 
+# It is still allocated to resource /subscriptions/xxx/resourceGrouast/providers/Microsoft.Network/ps/mc_tap-run_tap-run_australiaeast/providers/Microsoft.Network/loadBalancers/kubernetes/frontendIPConfigurations/yyy
+
+# Temp retire to compare with annotation
+/*
 resource "azurerm_public_ip" "tap-view-pip" {
     depends_on = [          
-      azurerm_kubernetes_cluster.tap_view_aks, 
+      azurerm_kubernetes_cluster.tap_view_aks,       
   ]
   name                = "envoy-ip"
   resource_group_name = "${azurerm_kubernetes_cluster.tap_view_aks.node_resource_group}" 
   location            = azurerm_resource_group.tap_view_rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
-}
+} */
 
 
 
@@ -291,6 +306,9 @@ resource "azurerm_public_ip" "bootstrap_pip" {
 }
 
 resource "azurerm_network_interface" "bootstrap_nic" {
+  depends_on = [
+    azurerm_public_ip.bootstrap_pip,
+  ]
   name                = "bootstrap-nic"
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
@@ -309,10 +327,10 @@ resource "azurerm_linux_virtual_machine" "main" {
     azurerm_kubernetes_cluster.tap_view_aks,
     azurerm_kubernetes_cluster.tap_build_aks,
     azurerm_kubernetes_cluster.tap_run_aks,    
+    azurerm_network_interface.bootstrap_nic,
   ]
 
-  # azurerm_container_registry.tap_acr,
-
+  
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
@@ -344,7 +362,7 @@ resource "azurerm_linux_virtual_machine" "main" {
 
     # Send files:
   provisioner "file" {  
-    source = "${path.cwd}/../Common/" 
+    source = "${path.cwd}/Common/" 
     destination = "/home/${var.bootstrap_username}/" 
   }
 
@@ -356,6 +374,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo sh get-docker.sh",
       "sudo groupadd docker",
       "sudo usermod -aG docker $USER",
+      "echo 'END DOCKER INSTALL'",
     ]
 
   }
@@ -403,13 +422,14 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes", 
       "cd",
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
+      "echo 'END VIEW CLUSTER'",
     ]
   }
 
   # Certs and view cluster
   provisioner "remote-exec" { 
     inline = [
-            "mkdir -p certs",
+      "mkdir -p certs",
       "rm -f certs/*",
       "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chown $USER:$USER certs/*",
