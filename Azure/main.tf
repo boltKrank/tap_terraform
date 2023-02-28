@@ -130,11 +130,12 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2" 
-    node_count = var.tap_view_node_count
-    enable_auto_scaling = true
-    min_count = var.tap_view_node_count
-    max_count = 3
-    # vnet_subnet_id = azurerm_subnet.internal.id
+    node_count = 3
+    # node_count = var.tap_view_node_count
+    # enable_auto_scaling = true
+    # min_count = var.tap_view_node_count
+    # max_count = 3
+    # # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -188,10 +189,11 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2" 
-    node_count = var.tap_build_node_count
-    enable_auto_scaling = true
-    min_count = var.tap_build_node_count
-    max_count = 3
+    node_count = 3
+    # node_count = var.tap_build_node_count
+    # enable_auto_scaling = true
+    # min_count = var.tap_build_node_count
+    # max_count = 3
    # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
@@ -236,10 +238,11 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2" 
-    node_count = var.tap_run_node_count
-    enable_auto_scaling = true
-    min_count = var.tap_run_node_count
-    max_count = 3
+    node_count = 3
+    # node_count = var.tap_run_node_count
+    # enable_auto_scaling = true
+    # min_count = var.tap_run_node_count
+    # max_count = 3
     # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
