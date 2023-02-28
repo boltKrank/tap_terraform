@@ -51,7 +51,6 @@ locals {
 # }
 
 
-
 # TAP VIEW START
 
 resource "azurerm_resource_group" "tap_view_rg" {
