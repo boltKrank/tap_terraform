@@ -309,6 +309,7 @@ resource "azurerm_network_interface" "bootstrap_nic" {
   depends_on = [
     azurerm_public_ip.bootstrap_pip,
   ]
+  
   name                = "bootstrap-nic"
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
@@ -318,6 +319,10 @@ resource "azurerm_network_interface" "bootstrap_nic" {
     subnet_id                     = azurerm_subnet.internal.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.bootstrap_pip.id
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
