@@ -17,6 +17,8 @@ contour:
     service:
       type: LoadBalancer
       loadBalancerIP: ${ENVOY_IP_RUN}      
+      annotations:
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-run
 
 cnrs:
   domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"

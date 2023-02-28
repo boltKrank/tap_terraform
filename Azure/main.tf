@@ -283,7 +283,7 @@ resource "azurerm_public_ip" "tap-run-pip" {
       azurerm_kubernetes_cluster.tap_run_aks, 
   ]
   name                = "envoy-ip"
-  resource_group_name = "${azurerm_kubernetes_cluster.tap_run_aks.node_resource_group}" 
+  resource_group_name = azurerm_resource_group.tap_run_rg.name
   location            = azurerm_resource_group.tap_run_rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
