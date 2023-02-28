@@ -130,11 +130,10 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2" 
-    node_count = 3
-    # node_count = var.tap_view_node_count
-    # enable_auto_scaling = true
-    # min_count = var.tap_view_node_count
-    # max_count = 3
+    node_count = 1    
+    enable_auto_scaling = true
+    min_count = 1
+    max_count = 3
     # # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
@@ -188,8 +187,11 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = "standard_f4s_v2" 
-    node_count = 3
+    vm_size    = "standard_f4s_v2"     
+    node_count = 1    
+    enable_auto_scaling = true
+    min_count = 1
+    max_count = 3
     # node_count = var.tap_build_node_count
     # enable_auto_scaling = true
     # min_count = var.tap_build_node_count
@@ -238,7 +240,10 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "standard_f4s_v2" 
-    node_count = 3
+    node_count = 1    
+    enable_auto_scaling = true
+    min_count = 1
+    max_count = 3
     # node_count = var.tap_run_node_count
     # enable_auto_scaling = true
     # min_count = var.tap_run_node_count
@@ -356,9 +361,9 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   # # Run commands:
-    # TEST: "nohup &",
   provisioner "remote-exec" { 
 
+    # Pre-reqs: Azure CLI, Pivnet CLI, Tanzu CLI, and Cluster essentials for all clusters
     inline = [
       "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash",   
       "az login --service-principal -u ${var.sp_client_id} -p ${var.sp_secret} --tenant ${var.sp_tenant_id}",
@@ -398,7 +403,13 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes", 
       "cd",
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
-      "mkdir -p certs",
+    ]
+  }
+
+  # Certs and view cluster
+  provisioner "remote-exec" { 
+    inline = [
+            "mkdir -p certs",
       "rm -f certs/*",
       "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chown $USER:$USER certs/*",
@@ -418,7 +429,6 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
       "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-view-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
-      "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}",
       "cd",
       "mkdir -p overlays/view",
       "cd",
@@ -435,12 +445,18 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
       "cd",  
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-view.yaml -n tap-install --wait=false",   
-      "sleep 300",
+      "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} tap-values-view.yaml",   
       "kubectl get packageinstall -n tap-install",
       "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
       "tanzu package installed update -n tap-install tap -f tap-values-view.yaml --poll-timeout 20m",
       "kubectl get httpproxy -A",
+      "echo 'END VIEW CLUSTER'",      
+    ]
+  }
+
+  # Build cluster
+  provisioner "remote-exec" { 
+    inline = [
       "kubectl config use-context tap-build-admin",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
@@ -450,33 +466,57 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod +x create-repository-secret.sh",
       "./create-repository-secret.sh ${var.tap_acr_name}.azurecr.io ${var.tap_acr_name} ${local.acr_pass}",
       "cd",
-      "chmod 755create-metadata-store-secrets-build.sh; ./create-metadata-store-secrets-build.sh",
+      "chmod 755 create-metadata-store-secrets-build.sh; ./create-metadata-store-secrets-build.sh",
       "kubectl -n tap-install create secret generic metadata-store-secrets -o yaml --dry-run=client --from-file=overlays/build/metadata-store-secrets.yaml | kubectl apply -f-",
       "cd",
       "export ACR_NAME=${var.tap_acr_name}",
       "chmod 755 create-tap-values-build.sh; ./create-tap-values-build.sh",
       "cd",
-      "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} ",
+      "./tap-install.sh ${var.tap_version} tap-values-build.yaml",
       "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install --poll-timeout 30m",
       "tanzu package installed list -n tap-install ",
-      "kubectl get clusterbuilder",
-      "kubectl config use-context tap-run-admin",
+      "kubectl get clusterbuilder",      
+    ]
+  }
+
+    #Run cluster
+    provisioner "remote-exec" { 
+      inline = [
+        "kubectl config use-context tap-run-admin",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",  
       "export ENVOY_IP_RUN=${azurerm_public_ip.tap-run-pip.ip_address}",
       "az network public-ip list -o table",
       "export DOMAIN_NAME_RUN=${var.tap_run_dns_prefix}.$(echo $ENVOY_IP_RUN | sed 's/\\./-/g').${var.domain_name}",
-    ]
+      "cd",
+      "mkdir -p overlays/run",
+      "cp overlays/view/contour-default-tls.yaml  overlays/run/contour-default-tls.yaml",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/view/contour-default-tls.yaml  | kubectl apply -f-",
+      "chmod 755 create-cnrs-https.sh; ./create-cnrs-https.sh",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml  | kubectl apply -f-",
+      "chmod 755 create-tap-values-run.sh; ./create-tap-values-run.sh",
+      "cat tap-values-run.yaml",
+      "./tap-install.sh ${var.tap_version} tap-values-run.yaml",
+      "tanzu package installed list -n tap-install",
+      "tanzu secret registry add tbs-registry-credentials --server ${var.tap_acr_name}.azurecr.io --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\"  --export-to-all-namespaces --yes --namespace tap-install",
+      "kubectl create namespace demo",
+      "kubectl label namespaces demo apps.tanzu.vmware.com/tap-ns=",
+      "kubectl get secrets,serviceaccount,rolebinding,pods,workload,configmap -n demo",            
+      ]
+    }
+      
+        
+    
   }
-}
+
 
 
       # TEMP DELETE:
       /* 
 
       # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install --poll-timeout 30m",   
-
+            "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}",
  */
 
 
