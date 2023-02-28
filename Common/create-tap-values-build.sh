@@ -1,3 +1,4 @@
+#!/bin/bash
 cat <<EOF > tap-values-build.yaml
 profile: build
 

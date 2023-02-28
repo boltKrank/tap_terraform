@@ -64,7 +64,7 @@ locals {
 
 # resource "azurerm_resource_group" "tap_full_rg" {
 #   # count = var.tap_full_count
-#   name = "${var.tap_full_aks_name}-rg"
+#   name = "${var.tap_full_aks_name}"
 #   location = var.location
 # }
 
@@ -111,7 +111,7 @@ locals {
 
 resource "azurerm_resource_group" "tap_view_rg" {
   # count = var.tap_view_count
-  name = "${var.tap_view_aks_name}-rg"
+  name = var.tap_view_aks_name
   location = var.location
 }
 
@@ -170,7 +170,7 @@ resource "azurerm_public_ip" "tap-view-pip" {
 
 resource "azurerm_resource_group" "tap_build_rg" {
   # count = var.tap_build_count
-  name = "${var.tap_build_aks_name}-rg"
+  name = var.tap_build_aks_name
   location = var.location
 }
 
@@ -218,7 +218,7 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 
 resource "azurerm_resource_group" "tap_run_rg" {
   # count = var.tap_run_count
-  name = "${var.tap_run_aks_name}-rg"
+  name = var.tap_run_aks_name
   location = var.location  
 }
 
@@ -383,9 +383,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
       "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
       "cd tanzu-cluster-essentials",           
-      "az aks get-credentials --resource-group ${var.tap_view_aks_name}-rg --name ${var.tap_view_aks_name} --admin --overwrite-existing",
-      "az aks get-credentials --resource-group ${var.tap_build_aks_name}-rg --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
-      "az aks get-credentials --resource-group ${var.tap_run_aks_name}-rg --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
+      "az aks get-credentials --resource-group ${var.tap_view_aks_name} --name ${var.tap_view_aks_name} --admin --overwrite-existing",
+      "az aks get-credentials --resource-group ${var.tap_build_aks_name} --name ${var.tap_build_aks_name}  --admin --overwrite-existing",
+      "az aks get-credentials --resource-group ${var.tap_run_aks_name} --name ${var.tap_run_aks_name}  --admin --overwrite-existing",
       "kubectl config get-contexts",
       "kubectl config use-context ${var.tap_view_aks_name}-admin",
       "./install.sh --yes",
@@ -415,7 +415,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
       "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-view-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
-      "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}-rg",
+      "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}",
       "cd",
       "mkdir -p overlays/view",
       "cd",
@@ -432,10 +432,11 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod 755 create-tap-values-view.sh; ./create-tap-values-view.sh",
       "cat tap-values-view.yaml",
       "cd",  
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-view.yaml -n tap-install --poll-timeout 20m",   
+      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-view.yaml -n tap-install --wait=false",   
+      "sleep 300",
       "kubectl get packageinstall -n tap-install",
       "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
-      "tanzu package installed update -n tap-install tap -f tap-values-view.yaml",
+      "tanzu package installed update -n tap-install tap -f tap-values-view.yaml --poll-timeout 20m",
       "kubectl get httpproxy -A",
       "kubectl config use-context tap-build-admin",
       "kubectl create ns tap-install",
@@ -451,8 +452,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cd",
       "export ACR_NAME=${var.tap_acr_name}",
       "chmod 755 create-tap-values-build.sh; ./create-tap-values-build.sh",
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install --poll-timeout 20m",   
-      "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install --poll-timeout 20m",
+      "cd",
+      "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} ",
+      "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install --poll-timeout 30m",
       "tanzu package installed list -n tap-install ",
       "kubectl get clusterbuilder",
       "kubectl config use-context tap-run-admin",
@@ -470,7 +472,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       # TEMP DELETE:
       /* 
 
-      
+      # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install --poll-timeout 30m",   
 
  */
 
