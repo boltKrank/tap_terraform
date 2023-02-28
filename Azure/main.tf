@@ -89,7 +89,6 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
     enable_auto_scaling = true
     min_count = 1
     max_count = 3
-    # # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -108,14 +107,12 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
 # # TAP BUILD START
 
-resource "azurerm_resource_group" "tap_build_rg" {
-  # count = var.tap_build_count
+resource "azurerm_resource_group" "tap_build_rg" {  
   name = var.tap_build_aks_name
   location = var.location
 }
 
-resource "azurerm_kubernetes_cluster" "tap_build_aks" {
-  # count               = var.tap_build_count
+resource "azurerm_kubernetes_cluster" "tap_build_aks" {  
   name                = var.tap_build_aks_name
   resource_group_name = azurerm_resource_group.tap_build_rg.name
   location            = azurerm_resource_group.tap_build_rg.location    
@@ -151,14 +148,12 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 
 # # TAP RUN START
 
-resource "azurerm_resource_group" "tap_run_rg" {
-  # count = var.tap_run_count
+resource "azurerm_resource_group" "tap_run_rg" {  
   name = var.tap_run_aks_name
   location = var.location  
 }
 
-resource "azurerm_kubernetes_cluster" "tap_run_aks" {
-  # count               = var.tap_run_count
+resource "azurerm_kubernetes_cluster" "tap_run_aks" {  
   name                = var.tap_run_aks_name
   resource_group_name = azurerm_resource_group.tap_run_rg.name
   location            = azurerm_resource_group.tap_run_rg.location    
@@ -436,7 +431,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       # NEED TO RE-ADD:
 
 
-      # OLD_IMGPKG:
+      # OLD_IMGPKG (Fixes AKS issue):
       # "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
       # "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
       # "export PATH=$PATH:/usr/local/go/bin",
