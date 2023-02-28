@@ -427,7 +427,35 @@ resource "azurerm_linux_virtual_machine" "main" {
       "echo 'END RUN CLUSTER'",
       "cat url.txt",
       ]
-    }        
+    }  
+
+    # Create supply-chains, workload and deployment
+    provisioner "remote-exec" {
+      inline = [
+        "kubectl config use-context tap-build-admin",
+        "NAMESPACE=demo",
+        "kubectl create ns ${NAMESPACE}",
+        "kubectl label namespaces demo apps.tanzu.vmware.com/tap-ns=",
+        "tanzu secret registry add tbs-registry-credentials --server ${var.tap_acr_name}.azurecr.io --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\"  --export-to-all-namespaces --yes --namespace tap-install",
+        "cd",
+        "chmod 755 create-maven-pipeline.sh; ./create-maven-pipeline.sh",
+        "chmod 755 create-scan-policy.sh; ./create-scan-policy.sh",
+        "chmod 755 install-grype.sh; ./install-grype.sh",
+        "tanzu package install -n tap-install grype-${NAMESPACE} -p grype.scanning.apps.tanzu.vmware.com -v ${var.tap_version} -f grype-${NAMESPACE}-values.yaml",
+        "tanzu apps workload apply tanzu-java-web-app --app tanzu-java-web-app --git-repo https://github.com/making/tanzu-java-web-app --git-branch main --type web --label apps.tanzu.vmware.com/has-tests=true --annotation autoscaling.knative.dev/minScale=1 --request-memory 768Mi -n demo -y",
+        "tanzu apps workload get -n demo tanzu-java-web-app",
+        "kubectl get cm -n ${NAMESPACE} tanzu-java-web-app-deliverable -otemplate='{{.data.deliverable}}' > deliverable.yaml",
+        "kubectl config use-context tap-run-admin",
+        "kubectl apply -f deliverable.yaml -n ${NAMESPACE}",
+        "echo TODO:",
+        "kubectl get ksvc -n demo tanzu-java-web-app",
+        "curl -k $(kubectl get ksvc -n demo tanzu-java-web-app -ojsonpath='{.status.url}')",
+      ]
+
+      # Need to add:
+      # kubectl patch deliverable tanzu-java-web-app -n ${NAMESPACE} --type merge --patch "{\"metadata\":{\"labels\":{\"carto.run/workload-name\":\"tanzu-java-web-app\",\"carto.run/workload-namespace\":\"${NAMESPACE}\"}}}"
+
+    }      
     
   }
 
