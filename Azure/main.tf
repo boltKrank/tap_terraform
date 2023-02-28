@@ -1,6 +1,4 @@
-# https://github.com/hashicorp/terraform-provider-azurerm
-
-# Conditions: https://stackoverflow.com/questions/55555963/how-to-write-an-if-else-elsif-conditional-statement-in-terraform
+# TAP Multi-cluster deployment
 
 provider "azurerm" {
   features {}
@@ -53,9 +51,8 @@ locals {
 
 # TAP VIEW START
 
-resource "azurerm_resource_group" "tap_view_rg" {
-  # count = var.tap_view_count
-  name = var.tap_view_aks_name
+resource "azurerm_resource_group" "tap_view_rg" {  
+  name = var.tap_view_resource_group
   location = var.location
 }
 
@@ -71,8 +68,7 @@ resource "azurerm_public_ip" "tap-view-pip" {
 resource "azurerm_kubernetes_cluster" "tap_view_aks" {
   depends_on = [
     azurerm_public_ip.tap-view-pip,
-  ]
-  # count               = var.tap_view_count
+  ]  
   name                = var.tap_view_aks_name
   resource_group_name = azurerm_resource_group.tap_view_rg.name
   location            = azurerm_resource_group.tap_view_rg.location    
@@ -84,11 +80,11 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = "standard_f4s_v2" 
-    node_count = 1    
-    enable_auto_scaling = true
-    min_count = 1
-    max_count = 3
+    vm_size    = var.tap_view_vm_size
+    node_count = var.tap_view_node_count    
+    enable_auto_scaling = var.tap_view_autoscaling
+    min_count = var.tap_view_min_node_count
+    max_count = var.tap_view_max_node_count
   }
 
   service_principal {
@@ -108,7 +104,7 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 # # TAP BUILD START
 
 resource "azurerm_resource_group" "tap_build_rg" {  
-  name = var.tap_build_aks_name
+  name = var.tap_build_resource_group
   location = var.location
 }
 
@@ -124,11 +120,11 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = "standard_f4s_v2"     
-    node_count = 1    
-    enable_auto_scaling = true
-    min_count = 1
-    max_count = 3
+    vm_size    = var.tap_build_vm_size    
+    node_count = var.tap_build_node_count
+    enable_auto_scaling = var.tap_build_autoscaling
+    min_count = var.tap_build_min_node_count
+    max_count = var.tap_vuild_max_node_count
   }
 
   service_principal {
@@ -149,9 +145,18 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 # # TAP RUN START
 
 resource "azurerm_resource_group" "tap_run_rg" {  
-  name = var.tap_run_aks_name
+  name = var.tap_run_resource_group
   location = var.location  
 }
+
+resource "azurerm_public_ip" "tap-run-pip" {
+    
+  name                = "envoy-ip" 
+  resource_group_name = var.tap_run_resource_group
+  location            = azurerm_resource_group.tap_run_rg.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+} 
 
 resource "azurerm_kubernetes_cluster" "tap_run_aks" {  
   name                = var.tap_run_aks_name
@@ -165,11 +170,11 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = "standard_f4s_v2" 
-    node_count = 1    
-    enable_auto_scaling = true
-    min_count = 1
-    max_count = 3
+    vm_size    = var.tap_run_vm_size
+    node_count = var.tap_run_node_count
+    enable_auto_scaling = var.tap_run_autoscaling
+    min_count = var.tap_run_min_node_count
+    max_count = var.tap_run_max_node_count
   }
 
   service_principal {
@@ -226,7 +231,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
-  size                            = "Standard_B2s"
+  size                            = var.bootstrap_vm_size
   admin_username                  = var.bootstrap_username
   admin_password                  = var.bootstrap_password
   disable_password_authentication = false

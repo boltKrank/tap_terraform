@@ -29,6 +29,7 @@ variable "sp_secret" {
 ### Other variables
 variable "resource_group" {
   description = "Resource group name"
+  default = "tap-rg"
 }
 
 variable "location" {
@@ -37,6 +38,7 @@ variable "location" {
 
 variable "domain_name" {
   description = "Domain name use for accessing."
+  default = "tapdomain.local"
 }
 
 ### Bootstrap box
@@ -49,6 +51,10 @@ variable "bootstrap_password" {
   description = "Password for bootsrap box"
 }
 
+variable "bootstrap_vm_size" {
+  description = "Password for bootsrap box"
+  default = "Standard_B2s"
+}
 
 variable "tanzu_registry_hostname" {
   description = "URL for Tanzu registry"
@@ -66,14 +72,17 @@ variable "tanzu_registry_password" {
 
 variable "tap_version" {
   description = "The version of TAP to install"
+  default = "1.4.0"
 }
 
 variable "tbs_version" {
   description = "The version of Tanzu Build Service to install"
+  default = "1.9.0"
 }
 
 variable "pivnet_version" {
   description = "The version of pivnet CLI to install"
+  default = "3.0.1"
 }
 
 variable "pivnet_api_token" {
@@ -82,6 +91,7 @@ variable "pivnet_api_token" {
 
 variable "tanzu_cli_version" {
   description = "Tanzu CLI version"
+  default = "0.25.4"
 }
 
 
@@ -94,57 +104,50 @@ variable "tap_acr_name" {
 
 variable "tap_k8s_version" {
   description = "Version of kubernetes to use"
-}
-
-### AKS Full
-
-variable "tap_full_resource_group" {
-  description = "Azure resource group for full profile cluster"
-  default = "tap_full_rg"
-}
-
-variable "tap_full_count" {
-  description = "Number of AKS instances to be made for this type"
-  default = 0
-}
-
-variable "tap_full_node_count" {
-  description = "Number of AKS instances to be made for this type"
-  default = "3"
-}
-
-variable "tap_full_aks_name" {
-  description = "Name of the View AKS cluster"
-}
-
-variable "tap_full_dns_prefix" {
-  description = "DNS prefix for TAP view"
+  default = "1.24"
 }
 
 ### AKS View
 
 variable "tap_view_resource_group" {
   description = "Azure resource group for view profile cluster"
-  default = "tap_view_rg"
+  default = "tap-view"
 }
 
-variable "tap_view_count" {
-  description = "Number of AKS instances to be made for this type"
-  default = 0
+variable "tap_view_vm_size" {
+  description = "Azure vm size for TAP view"
+  default = "standard_f4s_v2" 
+}
+
+variable "tap_view_autoscaling" {
+  description = "Whether to enable autoscaling for the view cluster"
+  default = true
 }
 
 variable "tap_view_node_count" {
   description = "Initial node count for view cluster"
-  default = "1"
+  default = 1
+}
+
+variable "tap_view_min_node_count" {
+  description = "Minimum node count for view cluster"
+  default = 1
+}
+
+variable "tap_view_max_node_count" {
+  description = "Maximum node count for view cluster"
+  default = 3
 }
 
 variable "tap_view_aks_name" {
   description = "Name of the View AKS cluster"
+  default = "tap-view"
 }
 
 
 variable "tap_view_dns_prefix" {
   description = "DNS prefix for TAP view"
+  default = "view"
 }
 
 
@@ -152,26 +155,43 @@ variable "tap_view_dns_prefix" {
 
 variable "tap_build_resource_group" {
   description = "Azure resource group for build profile cluster"
-  default = "tap_build_rg"
+  default = "tap-build"
 }
 
-variable "tap_build_count" {
-  description = "Number of AKS instances to be made for this type"
-  default = 0
+variable "tap_build_vm_size" {
+  description = "Azure vm size for TAP build"
+  default = "standard_f4s_v2" 
 }
 
 variable "tap_build_node_count" {
   description = "Initial node count for build cluster"
-  default = "1"
+  default = 1
+}
+
+variable "tap_build_autoscaling" {
+  description = "Whether to enable autoscaling for the build cluster"
+  default = true
+}
+
+variable "tap_build_min_node_count" {
+  description = "Minimum node count for run cluster"
+  default = 1
+}
+
+variable "tap_vuild_max_node_count" {
+  description = "Maximum node count for run cluster"
+  default = 3
 }
 
 variable "tap_build_aks_name" {
   description = "Name of the build AKS cluster"
+  default = "tap-build"
 }
 
 
 variable "tap_build_dns_prefix" {
   description = "DNS prefix for TAP build"
+  default = "build"
 }
 
 
@@ -179,25 +199,41 @@ variable "tap_build_dns_prefix" {
 
 variable "tap_run_resource_group" {
   description = "Azure resource group for run profile cluster"
-  default = "tap_build_run"
+  default = "tap-run"
 }
 
-variable "tap_run_count" {
-  description = "Number of AKS instances to be made for this type"
-  default = 0
+variable "tap_run_vm_size" {
+  description = "Azure vm size for TAP run"
+  default = "standard_f4s_v2" 
 }
+
 variable "tap_run_node_count" {
   description = "Initial node count for run cluster"
-  default = "1"
+  default = 1
+}
+
+variable "tap_run_autoscaling" {
+  description = "Whether to enable autoscaling for the run cluster"
+  default = true
+}
+
+variable "tap_run_min_node_count" {
+  description = "Minimum node count for run cluster"
+  default = 1
+}
+
+variable "tap_run_max_node_count" {
+  description = "Maximum node count for run cluster"
+  default = 3
 }
 
 variable "tap_run_aks_name" {
   description = "Name of the run AKS cluster"
+  default = "tap-run"
 }
 
 
 variable "tap_run_dns_prefix" {
   description = "DNS prefix for TAP run"
+  default = "run"
 }
-
-
