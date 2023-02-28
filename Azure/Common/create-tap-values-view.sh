@@ -19,7 +19,7 @@ contour:
       type: LoadBalancer
       loadBalancerIP: ${ENVOY_IP_VIEW}      
       annotations:
-      service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-view
+         service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-view
 
 tap_gui:
   service_type: ClusterIP

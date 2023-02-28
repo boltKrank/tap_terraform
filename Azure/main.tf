@@ -33,8 +33,9 @@ resource "azurerm_subnet" "internal" {
   address_prefixes     = ["10.30.2.0/24"]
 }
 
-
-# TODO: Seperate subnets and resource groups for clusters
+locals {
+  acr_pass = "IidZRIfCirvXQAYr9PwBl1Hrfs34zWcGaG8jn/OaTx+ACRBrOCwE"
+}
 
 # -------------------------------------- START K8S STUFF ---------------------------------------------------
 
@@ -49,65 +50,9 @@ resource "azurerm_subnet" "internal" {
 #   admin_enabled       = true  
 # }
 
-locals {
-  acr_pass = "IidZRIfCirvXQAYr9PwBl1Hrfs34zWcGaG8jn/OaTx+ACRBrOCwE"
-}
 
-
-# # # # # Create AKS TODO: change code to "profile: full" or loop "view,build,run"
-
-# If full == 1 && (view || build || run == 1) -> throw error
-
-# TAP FULL START
-
-# Tap build cluster boolean -> count = var.tap_view_cluster
-
-# resource "azurerm_resource_group" "tap_full_rg" {
-#   # count = var.tap_full_count
-#   name = "${var.tap_full_aks_name}"
-#   location = var.location
-# }
-
-# resource "azurerm_kubernetes_cluster" "tap_full_aks" {
-#   count               = var.tap_full_count
-#   name                = var.tap_full_aks_name
-#   resource_group_name = azurerm_resource_group.tap_full_rg.name
-#   location            = azurerm_resource_group.tap_full_rg.location    
-#   dns_prefix = var.tap_full_dns_prefix
-#   kubernetes_version = var.tap_k8s_version
-#   tags                = {
-#     Environment = "Development"
-#   }
-
-#   default_node_pool {
-#     name       = "agentpool"
-#     vm_size    = "standard_f4s_v2"   # Standard_b4ms (4vcpu, 16Gb mem)
-#     node_count = "0" #var.tap_full_node_count
-#     enable_auto_scaling = true
-#     min_count = "0" #var.tap_full_node_count
-#     max_count = "5"
-#     vnet_subnet_id = azurerm_subnet.internal.id
-#   }
-
-#   service_principal {
-#     client_id = var.sp_client_id
-#     client_secret = var.sp_secret
-#   }
-
-#   network_profile {
-#     network_plugin    = "kubenet"
-#     load_balancer_sku = "standard"
-#   }
-
-# }
-
-# TAP FULL END
 
 # TAP VIEW START
-
-# Tap build cluster boolean -> count = var.tap_view_cluster
-
-# TODO: view cluster Public IP
 
 resource "azurerm_resource_group" "tap_view_rg" {
   # count = var.tap_view_count
@@ -160,28 +105,9 @@ resource "azurerm_kubernetes_cluster" "tap_view_aks" {
 
 }
 
-# It is still allocated to resource /subscriptions/xxx/resourceGrouast/providers/Microsoft.Network/ps/mc_tap-run_tap-run_australiaeast/providers/Microsoft.Network/loadBalancers/kubernetes/frontendIPConfigurations/yyy
-
-# Temp retire to compare with annotation
-/*
-resource "azurerm_public_ip" "tap-view-pip" {
-    depends_on = [          
-      azurerm_kubernetes_cluster.tap_view_aks,       
-  ]
-  name                = "envoy-ip"
-  resource_group_name = "${azurerm_kubernetes_cluster.tap_view_aks.node_resource_group}" 
-  location            = azurerm_resource_group.tap_view_rg.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-} */
-
-
-
 # TAP VIEW END
 
 # # TAP BUILD START
-
-# Tap build cluster boolean -> count = var.tap_build_cluster
 
 resource "azurerm_resource_group" "tap_build_rg" {
   # count = var.tap_build_count
@@ -207,11 +133,6 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
     enable_auto_scaling = true
     min_count = 1
     max_count = 3
-    # node_count = var.tap_build_node_count
-    # enable_auto_scaling = true
-    # min_count = var.tap_build_node_count
-    # max_count = 3
-   # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -230,10 +151,6 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
 # # TAP BUILD END
 
 # # TAP RUN START
-
-# Tap run cluster boolean -> count = var.tap_run_cluster
-
-# TODO: run cluster Public IP
 
 resource "azurerm_resource_group" "tap_run_rg" {
   # count = var.tap_run_count
@@ -259,11 +176,6 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
     enable_auto_scaling = true
     min_count = 1
     max_count = 3
-    # node_count = var.tap_run_node_count
-    # enable_auto_scaling = true
-    # min_count = var.tap_run_node_count
-    # max_count = 3
-    # vnet_subnet_id = azurerm_subnet.internal.id
   }
 
   service_principal {
@@ -278,18 +190,6 @@ resource "azurerm_kubernetes_cluster" "tap_run_aks" {
 
 }
 
-resource "azurerm_public_ip" "tap-run-pip" {
-    depends_on = [          
-      azurerm_kubernetes_cluster.tap_run_aks, 
-  ]
-  name                = "envoy-ip"
-  resource_group_name = azurerm_resource_group.tap_run_rg.name
-  location            = azurerm_resource_group.tap_run_rg.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-
 # # TAP RUN  END
 
 # -------------------------------------- END K8S STUFF  --------------------------------------------------
@@ -303,13 +203,12 @@ resource "azurerm_public_ip" "bootstrap_pip" {
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
   allocation_method   = "Static"
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
-resource "azurerm_network_interface" "bootstrap_nic" {
-  depends_on = [
-    azurerm_public_ip.bootstrap_pip,
-  ]
-  
+resource "azurerm_network_interface" "bootstrap_nic" {  
   name                = "bootstrap-nic"
   resource_group_name = azurerm_resource_group.tap_resource_group.name
   location            = azurerm_resource_group.tap_resource_group.location
@@ -321,21 +220,15 @@ resource "azurerm_network_interface" "bootstrap_nic" {
     public_ip_address_id          = azurerm_public_ip.bootstrap_pip.id
   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
-resource "azurerm_linux_virtual_machine" "main" {
-  # NOTE: azurerm_kubernetes_cluster.tap_full_aks,
+resource "azurerm_linux_virtual_machine" "main" {  
   depends_on = [    
     azurerm_kubernetes_cluster.tap_view_aks,
     azurerm_kubernetes_cluster.tap_build_aks,
-    azurerm_kubernetes_cluster.tap_run_aks,    
-    azurerm_network_interface.bootstrap_nic,
+    azurerm_kubernetes_cluster.tap_run_aks,      
   ]
-
-  
+ 
   name                            = "bootstrap-vm"
   resource_group_name             = azurerm_resource_group.tap_resource_group.name
   location                        = azurerm_resource_group.tap_resource_group.location
@@ -343,6 +236,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   admin_username                  = var.bootstrap_username
   admin_password                  = var.bootstrap_password
   disable_password_authentication = false
+  
   network_interface_ids = [
     azurerm_network_interface.bootstrap_nic.id,
   ]
@@ -365,7 +259,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     password = self.admin_password
   }
 
-    # Send files:
+  # Send files:
   provisioner "file" {  
     source = "${path.cwd}/Common/" 
     destination = "/home/${var.bootstrap_username}/" 
@@ -426,12 +320,11 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl config use-context ${var.tap_run_aks_name}-admin",
       "./install.sh --yes", 
       "cd",
-      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",
-      "echo 'END VIEW CLUSTER'",
-    ]
+      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",    
+    ]     
   }
 
-  # Certs and view cluster
+  # # Certs and view cluster
   provisioner "remote-exec" { 
     inline = [
       "mkdir -p certs",
@@ -481,7 +374,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     ]
   }
 
-  # Build cluster
+  # # Build cluster
   provisioner "remote-exec" { 
     inline = [
       "kubectl config use-context tap-build-admin",
@@ -507,7 +400,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     ]
   }
 
-    #Run cluster
+  #   #Run cluster
     provisioner "remote-exec" { 
       inline = [
       "kubectl config use-context tap-run-admin",
@@ -538,29 +431,6 @@ resource "azurerm_linux_virtual_machine" "main" {
     }        
     
   }
-
-
-
-      # TEMP DELETE:
-      /* 
-
-      # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version}  --values-file tap-values-build.yaml -n tap-install --poll-timeout 30m",   
-            "export TAP_VIEW_RESOURCE_GROUP=${var.tap_view_aks_name}",
- */
-
-
-      # TO RETURN:
-      # "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} tap-values-view.yaml",
-      # "export TLS_CERT=$(cat certs/ca.crt | sed 's/^/    /g')",
-      # "export TLS_KEY=$(cat certs/ca.key | sed 's/^/    /g')",   
-
-      # NEXT TO DO:
-      # tanzu package install tap -p tap.tanzu.vmware.com -v 1.4.0 --values-file tap-values-view.yaml -n tap-install --wait=false
-      # ./tap-install ${var.tap_version} tap-values-view.yaml
-      # ./tbs-install ${var.tbs_version} 
-      # tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-view.yaml -n tap-install --wait=false
-      # "sed -i.bak "s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/" tap-values-view.yaml"
-      # "tanzu package installed update -n tap-install tap -f tap-values-view.yaml"
 
       # Removed
 
