@@ -429,6 +429,8 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",      
       "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-view-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_view_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
+      "echo $DOMAIN_NAME_VIEW",
+      "echo tap-gui.$DOMAIN_NAME_VIEW > url.txt",
       "cd",
       "mkdir -p overlays/view",
       "cd",
@@ -476,19 +478,21 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install --poll-timeout 30m",
       "tanzu package installed list -n tap-install ",
       "kubectl get clusterbuilder",      
+      "echo 'END BUILD CLUSTER'",
     ]
   }
 
     #Run cluster
     provisioner "remote-exec" { 
       inline = [
-        "kubectl config use-context tap-run-admin",
+      "kubectl config use-context tap-run-admin",
       "kubectl create ns tap-install",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",  
       "export ENVOY_IP_RUN=${azurerm_public_ip.tap-run-pip.ip_address}",
       "az network public-ip list -o table",
       "export DOMAIN_NAME_RUN=${var.tap_run_dns_prefix}.$(echo $ENVOY_IP_RUN | sed 's/\\./-/g').${var.domain_name}",
+      "echo $DOMAIN_NAME_RUN",
       "cd",
       "mkdir -p overlays/run",
       "cp overlays/view/contour-default-tls.yaml  overlays/run/contour-default-tls.yaml",
@@ -502,11 +506,11 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu secret registry add tbs-registry-credentials --server ${var.tap_acr_name}.azurecr.io --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\"  --export-to-all-namespaces --yes --namespace tap-install",
       "kubectl create namespace demo",
       "kubectl label namespaces demo apps.tanzu.vmware.com/tap-ns=",
-      "kubectl get secrets,serviceaccount,rolebinding,pods,workload,configmap -n demo",            
+      "kubectl get secrets,serviceaccount,rolebinding,pods,workload,configmap -n demo",           
+      "echo 'END RUN CLUSTER'",
+      "cat url.txt",
       ]
-    }
-      
-        
+    }        
     
   }
 
