@@ -178,7 +178,7 @@ variable "tap_build_min_node_count" {
   default = 1
 }
 
-variable "tap_vuild_max_node_count" {
+variable "tap_build_max_node_count" {
   description = "Maximum node count for run cluster"
   default = 3
 }
@@ -236,4 +236,9 @@ variable "tap_run_aks_name" {
 variable "tap_run_dns_prefix" {
   description = "DNS prefix for TAP run"
   default = "run"
+}
+
+# Temp variable (to delete)
+variable "acr_pass" {
+  
 }

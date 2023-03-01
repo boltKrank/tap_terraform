@@ -32,7 +32,7 @@ resource "azurerm_subnet" "internal" {
 }
 
 locals {
-  acr_pass = "IidZRIfCirvXQAYr9PwBl1Hrfs34zWcGaG8jn/OaTx+ACRBrOCwE"
+  acr_pass = var.acr_pass
 }
 
 # -------------------------------------- START K8S STUFF ---------------------------------------------------
