@@ -4,7 +4,7 @@ provider "azurerm" {
   features {}
 
 
-  subscription_id = var.subscription_id
+  # subscription_id = var.subscription_id
   # tap_sp
   # client_id       = var.sp_client_id
   # client_secret   = var.sp_secret
@@ -124,7 +124,7 @@ resource "azurerm_kubernetes_cluster" "tap_build_aks" {
     node_count = var.tap_build_node_count
     enable_auto_scaling = var.tap_build_autoscaling
     min_count = var.tap_build_min_node_count
-    max_count = var.tap_vuild_max_node_count
+    max_count = var.tap_build_max_node_count
   }
 
   service_principal {

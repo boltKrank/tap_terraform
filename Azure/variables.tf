@@ -58,11 +58,13 @@ variable "bootstrap_vm_size" {
 
 variable "tanzu_registry_hostname" {
   description = "URL for Tanzu registry"
+  default = "registry.tanzu.vmware.com"
 }
 
 
 variable "tanzu_registry_username" {
   description = "Username for Tanzu registry"
+  default = "tanzu_registry_username"
 }
 
 
