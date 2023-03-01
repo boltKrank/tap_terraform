@@ -2,8 +2,6 @@
 
 ## Required variables
 
-
-
 subscription_id
 subscription_name
 sp_tenant_id

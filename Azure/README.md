@@ -6,23 +6,12 @@
 
 ## terraform verbose output
 
-### Windows:
+### Windows
 
 `$Env:TF_LOG = "TRACE"`
 
 or (in decreasing order of verbosity): DEBUG, INFO, WARN, ERROR
 
+### Azure quotas
 
-
-```bash
-Terraform has detailed logs that you can enable by setting the TF_LOG environment variable to any value. Enabling this setting causes detailed logs to appear on stderr.
-
-You can set TF_LOG to one of the log levels (in order of decreasing verbosity) TRACE, DEBUG, INFO, WARN or ERROR to change the verbosity of the logs.
-
-Setting TF_LOG to JSON outputs logs at the TRACE level or higher, and uses a parseable JSON encoding as the formatting.
-
-```
-
-## Required specs
-
-[https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.4/tap/prerequisites.html]
+The default for the cluster nodes is "standard_f4s_v2". Since this has 4 vCPUs, we need to make sure our quota allows for the maximum. 3 nodes / cluster + Control pane = 16 vCPUs a cluster x 3 is a max of 48 vCPus - so make your quota 50. But this will incur costs - so shut it down when finished.
