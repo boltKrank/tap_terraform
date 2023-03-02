@@ -23,3 +23,8 @@ The default for the cluster nodes is "standard_f4s_v2". Since this has 4 vCPUs, 
 AKS works better with service accounts. To make one with all permissions - make one that manages your subscription. NOTE: This wouldn't be done outside of testing/dev environments.
 
 Go "Azure Active Directory" -> "App registrations"
+
+### Creating SPs via Azure CLI
+
+`az ad sp create-for-rbac --role "Owner" --name "APP-NAME" --scopes /subscriptions/SUBSCRIPTION-ID/resourceGroups/RESOURCE-GROUP`
+`az role assignment create --assignee APP-ID --role "Owner"`
