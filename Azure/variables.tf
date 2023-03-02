@@ -38,7 +38,7 @@ variable "location" {
 
 variable "domain_name" {
   description = "Domain name use for accessing."
-  default = "tapdomain.local"
+  default = "sslip.io"
 }
 
 ### Bootstrap box

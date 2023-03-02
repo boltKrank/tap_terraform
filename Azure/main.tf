@@ -436,7 +436,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     provisioner "remote-exec" {
       inline = [
         "kubectl config use-context tap-build-admin",
-        "NAMESPACE=demo",
+        "export NAMESPACE=demo",
         "kubectl create ns $NAMESPACE",
         "kubectl label namespaces demo apps.tanzu.vmware.com/tap-ns=",
         "tanzu secret registry add tbs-registry-credentials --server ${var.tap_acr_name}.azurecr.io --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\"  --export-to-all-namespaces --yes --namespace tap-install",
