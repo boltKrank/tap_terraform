@@ -17,44 +17,102 @@ provider "aws" {
 }
 
 # Create a VPC
-resource "aws_vpc" "my_vpc" {
-  cidr_block = "172.16.0.0/16"
+resource "aws_vpc" "tap_vpc" {
+  cidr_block = var.tap_vpc_cidr_block
 
   tags = {
     Name = "tap-vpc"
   }
 }
 
-resource "aws_subnet" "my_subnet" {
-  vpc_id            = aws_vpc.my_vpc.id
-  cidr_block        = "172.16.10.0/24"  
+# Create subnets (public and private)
+resource "aws_subnet" "tap_private_subnet" {
+  vpc_id            = aws_vpc.tap_vpc.id
+  cidr_block        = var.tap_subnet_private_cidr_block
 
   tags = {
-    Name = "tap-subnet"
+    Name = "tap-private-subnet"
   }
 }
 
+resource "aws_subnet" "tap_public_subnet" {
+  vpc_id            = aws_vpc.tap_vpc.id
+  cidr_block        = var.tap_subnet_public_cidr_block
+  tags = {
+    Name = "tap-public-subnet"
+  }
+}
+
+# Route table + associations
+
+resource "aws_route_table" "tap_rt" {
+  vpc_id = aws_vpc.tap_vpc.id
+  tags = {
+    "Name" = "TAP-Route-table"
+  }  
+}
+
+resource "aws_route_table_association" "tap_public" {
+  subnet_id = aws_subnet.tap_public_subnet
+  route_table_id = aws_route_table.tap_rt
+}
+
+resource "aws_route_table_association" "tap_private" {
+  subnet_id = aws_subnet.tap_private_subnet.id
+  route_table_id = aws_route_table.tap_rt.id
+}
+
+# Gateways
+resource "aws_internet_gateway" "tap_igw" {
+  vpc_id = aws_vpc.tap_vpc.id
+  tags = {
+    "Name" = "TAP-gateway"
+  }  
+}
+
+resource "aws_route" "internet_route" {
+  destination_cidr_block = "0.0.0.0/0"
+  route_table_id = aws_route_table.tap_rt.id
+  gateway_id = aws_internet_gateway.tap_igw.id  
+}
+
+# TODO: Securtiy groups
+
+# NICs
 resource "aws_network_interface" "bootstrap_nic" {
-  subnet_id   = aws_subnet.my_subnet.id
-  private_ips = ["172.16.10.100"]
-
+  subnet_id = aws_subnet.tap_public_subnet.id
+  private_ips = ["10.20.20.120"] 
+  # security_groups = sg.id
   tags = {
-    Name = "primary_network_interface"
+    Name = "Bootstrap-nic"
   }
 }
 
-# Securtiy groups
+# Public IP
+resource "aws_eip" "bootstrap_pip" {  
+  vpc      = true
+  network_interface = aws_network_interface.bootstrap_nic.id
+  tags = {
+    "Name" = "Bootstrap-pip"
+  }  
+}
+
+
 
 resource "aws_instance" "bootstrap" {
-  ami           = "ami-08f0bc76ca5236b20" # ap-southeast-2
-  instance_type = "t2.micro"
+  ami           = var.bootstrap_ami
+  instance_type = var.boostrap_instance_type
 
   network_interface {
     network_interface_id = aws_network_interface.bootstrap_nic.id
     device_index         = 0
   }
-
-  credit_specification {
-    cpu_credits = "unlimited"
+  tags = {
+    "Name" = "tap-bootstrap-vm"
   }
+
+}
+
+output "boot_pip" {
+  value = aws_instance.bootstrap.public_ip
 }
