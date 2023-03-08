@@ -53,8 +53,8 @@ resource "aws_route_table" "tap_rt" {
 }
 
 resource "aws_route_table_association" "tap_public" {
-  subnet_id = aws_subnet.tap_public_subnet
-  route_table_id = aws_route_table.tap_rt
+  subnet_id = aws_subnet.tap_public_subnet.id
+  route_table_id = aws_route_table.tap_rt.id
 }
 
 resource "aws_route_table_association" "tap_private" {
@@ -76,13 +76,38 @@ resource "aws_route" "internet_route" {
   gateway_id = aws_internet_gateway.tap_igw.id  
 }
 
-# TODO: Securtiy groups
+# TODO: Make securtiy groups stricter
+resource "aws_security_group" "all_open" {
+  name = "all_open_sg"
+  description = "all ports open"
+  vpc_id = aws_vpc.tap_vpc.id
+
+  ingress {
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description = "All allowed in"
+    from_port = "0"   
+    to_port = "0"
+    protocol = "-1"    
+  } 
+
+  egress {
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description = "All allowed out"
+    from_port = "0"   
+    to_port = "0"
+    protocol = "-1"    
+  } 
+
+  tags = {
+    "Name" = "All-open-sg"
+  }  
+}
 
 # NICs
 resource "aws_network_interface" "bootstrap_nic" {
   subnet_id = aws_subnet.tap_public_subnet.id
   private_ips = ["10.20.20.120"] 
-  # security_groups = sg.id
+  security_groups = [aws_security_group.all_open.id]
   tags = {
     Name = "Bootstrap-nic"
   }
@@ -98,10 +123,17 @@ resource "aws_eip" "bootstrap_pip" {
 }
 
 
+# Bootstrap VM
+
+resource "aws_key_pair" "boostrap_vm_key" {
+  key_name   = "bootstrap-key"
+  public_key = var.bootstrap_vm_public_key
+}
 
 resource "aws_instance" "bootstrap" {
   ami           = var.bootstrap_ami
   instance_type = var.boostrap_instance_type
+  key_name = "bootstrap-key"
 
   network_interface {
     network_interface_id = aws_network_interface.bootstrap_nic.id
@@ -110,7 +142,6 @@ resource "aws_instance" "bootstrap" {
   tags = {
     "Name" = "tap-bootstrap-vm"
   }
-
 }
 
 output "boot_pip" {

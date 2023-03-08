@@ -42,3 +42,7 @@ variable "boostrap_instance_type" {
   description = "The machine to run bootstrap on"
   default = "t2.micro"
 }
+
+variable "bootstrap_vm_public_key" {
+  description = "Public key to add to VM for logging in"
+}

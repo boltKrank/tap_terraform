@@ -1,6 +1,9 @@
 # Binaries
 binaries/
 
+# SSH keys
+keys/
+
 # Terraform test manifests
 terraform_test/
 
