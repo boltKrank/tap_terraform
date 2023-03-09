@@ -1,4 +1,4 @@
-variable "location" {
+variable "region" {
   description = "Instance location"
 }
 
@@ -43,6 +43,12 @@ variable "boostrap_instance_type" {
   default = "t2.micro"
 }
 
-variable "bootstrap_vm_public_key" {
-  description = "Public key to add to VM for logging in"
+variable "bootstrap_login_user" {
+  description = "The username to login to the bootstrap VM"
+  default = "ubuntu"
+}
+
+variable "view_cluster_name" {
+  description = "The name of the view cluster"
+  default = "tap-view-cluster"
 }
