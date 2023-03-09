@@ -2,6 +2,8 @@
 
 [https://github.com/ndwinton/tap-setup-scripts]
 
+[https://learnk8s.io/terraform-eks]
+
 ## Pre-lim
 
 export AWS_ACCESS_KEY_ID= xxx

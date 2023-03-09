@@ -48,6 +48,8 @@ variable "bootstrap_login_user" {
   default = "ubuntu"
 }
 
+### Clusters
+
 variable "view_cluster_name" {
   description = "The name of the view cluster"
   default = "tap-view-cluster"
