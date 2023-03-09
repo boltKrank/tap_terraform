@@ -130,63 +130,8 @@ resource "aws_eip" "bootstrap_pip" {
 
 # View cluster
 
-data "aws_caller_identity" "current" {}
 
-data "aws_iam_policy_document" "modify_cluster" {
-  statement {
-      sid = "ModifyaEKScluster"
 
-      actions = [
-        "eks:AccessKubernetesApi",
-        "eks:Associate*",
-        "eks:Create*",
-        "eks:Delete*",
-        "eks:DeregisterCluster",
-        "eks:DescribeCluster",
-        
-        "eks:DescribeUpdate",
-        "eks:List*",
-        "eks:TagResource",
-        "eks:UntagResource",
-        "eks:Update*"
-      ]
-
-      resources = [
-        "arn:aws:eks:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/*",
-      ]
-    }
-}
-
-resource "aws_iam_role" "modify_cluster" {
-  name               = "eks-cluster-example"
-  assume_role_policy = data.aws_iam_policy_document.modify_cluster.json
-}
-
-resource "aws_iam_role_policy_attachment" "example-AmazonEKSClusterPolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.modify_cluster.name
-}
-
-resource "aws_eks_cluster" "view_cluster" {
-  name = "${var.view_cluster_name}"
-  role_arn = aws_iam_role.modify_cluster.arn
-
-  vpc_config {
-    subnet_ids = [aws_subnet.tap_private_subnet.id]
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.example-AmazonEKSClusterPolicy
-  ]  
-}
-
-output "endpoint" {
-  value = aws_eks_cluster.view_cluster.endpoint
-}
-
-output "kubeconfig-certificate-authority-data" {
-  value = aws_eks_cluster.view_cluster.certificate_authority[0].data 
-} 
 
 #### END K8S STUFF #####
 
@@ -198,9 +143,9 @@ resource "aws_key_pair" "boostrap_vm_key" {
 }
 
 resource "aws_instance" "bootstrap" {
-  depends_on = [
-    aws_eks_cluster.view_cluster
-  ]
+  # depends_on = [
+  #   aws_eks_cluster.view_cluster
+  # ]
   ami           = var.bootstrap_ami
   instance_type = var.boostrap_instance_type
   key_name = "bootstrap-key"
@@ -219,6 +164,34 @@ resource "aws_instance" "bootstrap" {
     user = var.bootstrap_login_user
     private_key = "${file("keys/id_rsa")}"
   }
+  
+  # Test JSON generation
+  provisioner "file" {
+    destination = "~/build-service-trust-policy.json"
+    content = jsonencode({
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Federated": "arn:aws:iam::${var.access_key}:oidc-provider/${var.view_cluster_name}"
+              },
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                    "${var.view_cluster_name}:aud": "sts.amazonaws.com"
+                },
+                "StringLike": {
+                    "${var.view_cluster_name}:sub": [
+                        "system:serviceaccount:kpack:controller",
+                        "system:serviceaccount:build-service:dependency-updater-controller-serviceaccount"
+                    ]
+                }
+            }
+        }
+    ]
+    })
+  }
 
   # Install Docker
   provisioner "remote-exec" {
@@ -236,6 +209,8 @@ resource "aws_instance" "bootstrap" {
     inline = [
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
       "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+      "cd",
+      "cat build-service-trust-policy.json",
     ]
   }
 
