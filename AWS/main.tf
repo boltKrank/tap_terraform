@@ -143,6 +143,7 @@ data "aws_iam_policy_document" "modify_cluster" {
         "eks:Delete*",
         "eks:DeregisterCluster",
         "eks:DescribeCluster",
+        
         "eks:DescribeUpdate",
         "eks:List*",
         "eks:TagResource",
