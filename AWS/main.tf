@@ -5,55 +5,54 @@ provider "aws" {
   token = var.token
 }
 
-data "aws_availability_zones" "available" {}
+# data "aws_availability_zones" "available" {}
 
-locals {
-  cluster_name = "learnk8s"
-}
-
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "3.18.1"
-
-  name                 = "k8s-vpc"
-  cidr                 = "172.16.0.0/16"
-  azs                  = data.aws_availability_zones.available.names
-  private_subnets      = ["172.16.1.0/24", "172.16.2.0/24", "172.16.3.0/24","172.16.4.0/24"]
-  public_subnets       = ["172.16.5.0/24", "172.16.6.0/24", "172.16.7.0/24","172.16.8.0/24"]
-  enable_nat_gateway   = true
-  single_nat_gateway   = true
-  enable_dns_hostnames = true
-
-  public_subnet_tags = {
-    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                      = "1"
-  }
-
-  private_subnet_tags = {
-    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"             = "1"
-  }
-}
-
-output "public_subnets" {
-  value = module.vpc.public_subnets
-}
-
-output "private_subnets" {
-  value = module.vpc.private_subnets
-}
-
-output "public_subnets_0" {
-  value = module.vpc.public_subnets[0]
-}
-
-output "private_subnets_0" {
-  value = module.vpc.private_subnets[0]
-}
-
+# locals {
+#   cluster_name = "learnk8s"
+# }
 
 
 ###################################K8S START####################################################
+
+# module "k8s-vpc" {
+#   source  = "terraform-aws-modules/vpc/aws"
+#   version = "3.18.1"
+
+#   name                 = "k8s-vpc"
+#   cidr                 = "172.16.0.0/16"
+#   azs                  = data.aws_availability_zones.available.names
+#   private_subnets      = ["172.16.1.0/24", "172.16.2.0/24", "172.16.3.0/24"]
+#   public_subnets       = ["172.16.4.0/24", "172.16.5.0/24", "172.16.6.0/24"]
+#   enable_nat_gateway   = true
+#   single_nat_gateway   = true
+#   enable_dns_hostnames = true
+
+#   public_subnet_tags = {
+#     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+#     "kubernetes.io/role/elb"                      = "1"
+#   }
+
+#   private_subnet_tags = {
+#     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+#     "kubernetes.io/role/internal-elb"             = "1"
+#   }
+# }
+
+# output "public_subnets" {
+#   value = module.vpc.public_subnets
+# }
+
+# output "private_subnets" {
+#   value = module.vpc.private_subnets
+# }
+
+# output "public_subnets_0" {
+#   value = module.vpc.public_subnets[0]
+# }
+
+# output "private_subnets_0" {
+#   value = module.vpc.private_subnets[0]
+# }
 
 # data "aws_eks_cluster" "cluster" {
 #   name = module.eks.cluster_id
@@ -101,23 +100,114 @@ output "private_subnets_0" {
 
 ###################################VM START####################################################
 
-resource "aws_network_interface" "bootstrap_nic" {
-  subnet_id   = module.vpc.public_subnets[0]
-  private_ip = "172.16.5.1"
+# Create a VPC
+resource "aws_vpc" "tap_vpc" {
+  cidr_block = var.tap_vpc_cidr_block
 
   tags = {
-    Name = "primary_network_interface"
+    Name = "tap-vpc"
   }
 }
 
-# # Public IP
+# Create subnets (public and private)
+resource "aws_subnet" "tap_private_subnet" {
+  vpc_id            = aws_vpc.tap_vpc.id
+  cidr_block        = var.tap_subnet_private_cidr_block
+
+  tags = {
+    Name = "tap-private-subnet"
+  }
+}
+
+resource "aws_subnet" "tap_public_subnet" {
+  vpc_id            = aws_vpc.tap_vpc.id
+  cidr_block        = var.tap_subnet_public_cidr_block
+  tags = {
+    Name = "tap-public-subnet"
+  }
+}
+
+# Route table + associations
+
+resource "aws_route_table" "tap_rt" {
+  vpc_id = aws_vpc.tap_vpc.id
+  tags = {
+    "Name" = "TAP-Route-table"
+  }  
+}
+
+resource "aws_route_table_association" "tap_public" {
+  subnet_id = aws_subnet.tap_public_subnet.id
+  route_table_id = aws_route_table.tap_rt.id
+}
+
+resource "aws_route_table_association" "tap_private" {
+  subnet_id = aws_subnet.tap_private_subnet.id
+  route_table_id = aws_route_table.tap_rt.id
+}
+
+# Gateways
+resource "aws_internet_gateway" "tap_igw" {
+  vpc_id = aws_vpc.tap_vpc.id
+  tags = {
+    "Name" = "TAP-gateway"
+  }  
+}
+
+resource "aws_route" "internet_route" {
+  destination_cidr_block = "0.0.0.0/0"
+  route_table_id = aws_route_table.tap_rt.id
+  gateway_id = aws_internet_gateway.tap_igw.id  
+}
+
+# TODO: Make securtiy groups stricter
+resource "aws_security_group" "all_open" {
+  name = "all_open_sg"
+  description = "all ports open"
+  vpc_id = aws_vpc.tap_vpc.id
+
+  ingress {
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description = "All allowed in"
+    from_port = "0"   
+    to_port = "0"
+    protocol = "-1"    
+  } 
+
+  egress {
+    cidr_blocks = [ "0.0.0.0/0" ]
+    description = "All allowed out"
+    from_port = "0"   
+    to_port = "0"
+    protocol = "-1"    
+  } 
+
+  tags = {
+    "Name" = "All-open-sg"
+  }  
+}
+
+# NICs
+resource "aws_network_interface" "bootstrap_nic" {
+  subnet_id = aws_subnet.tap_public_subnet.id
+  private_ips = ["10.20.20.120"] 
+  security_groups = [aws_security_group.all_open.id]
+  tags = {
+    Name = "Bootstrap-nic"
+  }
+}
+
+# Public IP
 resource "aws_eip" "bootstrap_pip" {  
   vpc      = true
-  network_interface = aws_network_interface.bootstrap_nic.id  
+  network_interface = aws_network_interface.bootstrap_nic.id
   tags = {
     "Name" = "Bootstrap-pip"
   }  
 }
+
+
+# Bootstrap VM
 
 resource "aws_key_pair" "boostrap_vm_key" {
   key_name   = "bootstrap-key"
@@ -125,41 +215,21 @@ resource "aws_key_pair" "boostrap_vm_key" {
 }
 
 resource "aws_instance" "bootstrap" {
-  ami           = "ami-08f0bc76ca5236b20" # ap-southeast-2
-  instance_type = "t2.micro"
+  ami           = var.bootstrap_ami
+  instance_type = var.boostrap_instance_type
+  key_name = "bootstrap-key"
 
   network_interface {
     network_interface_id = aws_network_interface.bootstrap_nic.id
     device_index         = 0
   }
-
-  credit_specification {
-    cpu_credits = "unlimited"
+  tags = {
+    "Name" = "tap-bootstrap-vm"
   }
-
-  connection {
-    host = self.public_ip
-    type = "ssh"
-    user = var.bootstrap_login_user
-    private_key = "${file("keys/id_rsa")}"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-      "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-      "cd",
-      "KUBECONFIG=./kubeconfig_learnk8s",
-      "kubectl get pods --all-namespaces",
-    ]
-  }
-
 }
 
-
-  output "boot_pip" {
-    value = aws_instance.bootstrap.public_ip
-  }
-
+output "boot_pip" {
+  value = aws_instance.bootstrap.public_ip
+}
 
 ###################################VM END####################################################
