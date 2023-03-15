@@ -128,7 +128,7 @@ variable "tap_full_autoscaling" {
 
 variable "tap_full_node_count" {
   description = "Initial node count for full cluster"
-  default = 1
+  default = 3
 }
 
 variable "tap_full_min_node_count" {
@@ -138,7 +138,7 @@ variable "tap_full_min_node_count" {
 
 variable "tap_full_max_node_count" {
   description = "Maximum node count for full cluster"
-  default = 3
+  default = 4
 }
 
 variable "tap_full_aks_name" {
