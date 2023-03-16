@@ -184,6 +184,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     ]
 
   }
+  
 
   # # Run commands:
   provisioner "remote-exec" { 
@@ -206,7 +207,16 @@ resource "azurerm_linux_virtual_machine" "main" {
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
       "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
       "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
-      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",               
+      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
+      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+      "export PATH=$PATH:/usr/local/go/bin",
+      "git clone https://github.com/boltKrank/imgpkg.git",
+      "cd $HOME/imgpkg",
+      "$HOME/imgpkg/hack/build.sh",
+      "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
       "cd",
       "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
       "mkdir tanzu-cluster-essentials",
@@ -228,7 +238,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   # # Install full profile
   provisioner "remote-exec" { 
     inline = [
-
+      "ls",      
     ]
   }
 
