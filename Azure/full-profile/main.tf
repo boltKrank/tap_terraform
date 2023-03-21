@@ -231,7 +231,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export ACR_PASS = ${azurerm_container_registry.tap_acr.admin_password}",
       "export ENVOY_IP_VIEW =${azurerm_public_ip.tap-full-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_full_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
-      "export TAP_RG = ${azurerm_resource_group.tap_resource_group}",
+      "export TAP_RG = ${azurerm_resource_group.tap_resource_group.name}",
       "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chown $USER:$USER certs/*",
       "chmod og-rwx certs/ca.key",
