@@ -31,22 +31,17 @@ resource "azurerm_subnet" "internal" {
   address_prefixes     = ["10.30.2.0/24"]
 }
 
-locals {
-  acr_pass = var.acr_pass
-}
-
 # -------------------------------------- START K8S STUFF ---------------------------------------------------
 
 # # # # Create ACR
 
-# resource "azurerm_container_registry" "tap_acr" {
-#   count               = 0
-#   name                = var.tap_acr_name
-#   resource_group_name = azurerm_resource_group.tap_resource_group.name
-#   location            = azurerm_resource_group.tap_resource_group.location
-#   sku                 = "Standard"
-#   admin_enabled       = true  
-# }
+resource "azurerm_container_registry" "tap_acr" {
+  name                = var.tap_acr_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location
+  sku                 = "Standard"
+  admin_enabled       = true  
+}
 
 
 # TAP full START
@@ -206,7 +201,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "rm -f tanzu-framework-*-amd64-*.tar",
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
       "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${azurerm_container_registry.tap_acr.admin_password}",
       "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
       "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
       "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
@@ -224,7 +219,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_BUNDLE=${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version}",
       "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
       "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
-      "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
+      "export INSTALL_REGISTRY_PASSWORD=${azurerm_container_registry.tap_acr.admin_password}",
       "cd tanzu-cluster-essentials",           
       "az aks get-credentials --resource-group ${var.tap_full_aks_name} --name ${var.tap_full_aks_name} --admin --overwrite-existing",      
       "kubectl config get-contexts",
@@ -232,6 +227,24 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes",
       "cd",
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",    
+      "export ACR_NAME = ${var.tap_acr_name}",
+      "export ACR_PASS = ${azurerm_container_registry.tap_acr.admin_password}",
+      "export ENVOY_IP_VIEW =${azurerm_public_ip.tap-full-pip.ip_address}",
+      "export DOMAIN_NAME_VIEW=${var.tap_full_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
+      "export TAP_RG = ${azurerm_resource_group.tap_resource_group}",
+      "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
+      "sudo chown $USER:$USER certs/*",
+      "chmod og-rwx certs/ca.key",
+      "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",  
+      "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
+      "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",
+      "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh",
+      "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
+      "cat tap-values.yaml",
+      "./tap-install.sh ${var.tap_version} tap-values.yaml",  
     ]     
   }
 
@@ -243,55 +256,5 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
 }  
-
-    ## Post install testing - not needed for environment at the moment
-    
-    # # Create supply-chains, workload and deployment
-    # provisioner "remote-exec" {
-    #   inline = [
-    #     "kubectl config use-context tap-build-admin",
-    #     "export NAMESPACE=demo",
-    #     "kubectl create ns $NAMESPACE",
-    #     "kubectl label namespaces demo apps.tanzu.vmware.com/tap-ns=",
-    #     "tanzu secret registry add tbs-registry-credentials --server ${var.tap_acr_name}.azurecr.io --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\"  --export-to-all-namespaces --yes --namespace tap-install",
-    #     "cd",
-    #     "chmod 755 create-maven-pipeline.sh; ./create-maven-pipeline.sh",
-    #     "chmod 755 create-scan-policy.sh; ./create-scan-policy.sh",
-    #     "chmod 755 install-grype.sh; ./install-grype.sh",
-    #     "tanzu package install -n tap-install grype-$NAMESPACE -p grype.scanning.apps.tanzu.vmware.com -v ${var.tap_version} -f grype-$NAMESPACE-values.yaml",
-    #     "tanzu apps workload apply tanzu-java-web-app --app tanzu-java-web-app --git-repo https://github.com/making/tanzu-java-web-app --git-branch main --type web --label apps.tanzu.vmware.com/has-tests=true --annotation autoscaling.knative.dev/minScale=1 --request-memory 768Mi -n demo -y",
-    #     "tanzu apps workload get -n demo tanzu-java-web-app",
-    #     "kubectl get cm -n $NAMESPACE tanzu-java-web-app-deliverable -otemplate='{{.data.deliverable}}' > deliverable.yaml",
-    #     "kubectl config use-context tap-run-admin",
-    #     "kubectl apply -f deliverable.yaml -n $NAMESPACE", 
-    #   ]
-
-    #     # "kubectl patch deliverable tanzu-java-web-app -n $NAMESPACE --type merge --patch \"{\\\"metadata\\\":{\\\"labels\\\":{\\\"carto.run/workload-name\\\":\\\"tanzu-java-web-app\\\",\\\"carto.run/workload-namespace\\\":\\\"$NAMESPACE\\\"}}}\"",
-    #     # "kubectl get ksvc -n demo tanzu-java-web-app",     
-
-    #   # Need to add:
-    #   # kubectl patch deliverable tanzu-java-web-app -n ${NAMESPACE} --type merge --patch "{\"metadata\":{\"labels\":{\"carto.run/workload-name\":\"tanzu-java-web-app\",\"carto.run/workload-namespace\":\"${NAMESPACE}\"}}}"
-
-    # }      
-    
-        # Removed
-
-      # NEED TO RE-ADD:
-
-
-      # OLD_IMGPKG (Fixes AKS issue):
-      # "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
-      # "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
-      # "export PATH=$PATH:/usr/local/go/bin",
-      # "git clone https://github.com/boltKrank/imgpkg.git",
-      # "cd $HOME/imgpkg",
-      # "$HOME/imgpkg/hack/build.sh",
-      # "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",      
-      
-
-      # ORIGINAL:
-      # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
-      # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
-      
 
  
