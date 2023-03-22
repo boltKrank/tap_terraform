@@ -270,16 +270,17 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
       "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",  
       "ls",
+      "cd",
+      "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh create-tap-values.sh",
+      "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh; ./create-tap-values.sh",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
+      "cat tap-values.yaml",    
     ]
   }
 
-      # "cd",
-      # "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh create-tap-values.sh",
-      # "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh; ./create-tap-values.sh",
-      # "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
-      # "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
-      # "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
-      # "cat tap-values.yaml",    
+
 
   # TODO "./tap-install.sh ${var.tap_version} tap-values.yaml",  
 
