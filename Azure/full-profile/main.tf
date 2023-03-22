@@ -35,14 +35,24 @@ resource "azurerm_subnet" "internal" {
 
 # # # # Create ACR
 
-resource "azurerm_container_registry" "tap_acr" {
-  name                = var.tap_acr_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location
-  sku                 = "Standard"
-  admin_enabled       = true  
-}
+# resource "azurerm_container_registry" "tap_acr" {
+#   name                = var.tap_acr_name
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location
+#   sku                 = "Standard"
+#   admin_enabled       = true  
+# }
 
+# Non DEBUG
+# locals {
+#   acr_pass = azurerm_container_registry.tap_acr.admin_password
+# }
+
+# To DEBUG output
+locals {
+  # acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)  
+  acr_pass = var.acr_pass
+}
 
 # TAP full START
 
@@ -75,8 +85,7 @@ resource "azurerm_kubernetes_cluster" "tap_full_aks" {
 
   default_node_pool {
     name       = "agentpool"
-    vm_size    = var.tap_full_vm_size
-    node_count = var.tap_full_node_count    
+    vm_size    = var.tap_full_vm_size    
     enable_auto_scaling = var.tap_full_autoscaling
     min_count = var.tap_full_min_node_count
     max_count = var.tap_full_max_node_count
@@ -200,8 +209,14 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu plugin install --local cli all",
       "rm -f tanzu-framework-*-amd64-*.tar",
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-      "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
-      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${azurerm_container_registry.tap_acr.admin_password}",
+      "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",      
+      "cd",      
+    ]     
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
       "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
       "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
       "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
@@ -213,25 +228,37 @@ resource "azurerm_linux_virtual_machine" "main" {
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
       "cd",
+    ]
+  }
+
+
+  # Cluster essentials
+  provisioner "remote-exec" {
+    inline = [
       "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
       "mkdir tanzu-cluster-essentials",
       "tar xzvf tanzu-cluster-essentials-*-amd64-*.tgz -C tanzu-cluster-essentials",
       "export INSTALL_BUNDLE=${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version}",
       "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
       "export INSTALL_REGISTRY_USERNAME=${var.tap_acr_name}",
-      "export INSTALL_REGISTRY_PASSWORD=${azurerm_container_registry.tap_acr.admin_password}",
+      "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
       "cd tanzu-cluster-essentials",           
       "az aks get-credentials --resource-group ${var.tap_full_aks_name} --name ${var.tap_full_aks_name} --admin --overwrite-existing",      
       "kubectl config get-contexts",
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
       "./install.sh --yes",
-      "cd",
+    ]
+  }
+
+  # # Install full profile
+  provisioner "remote-exec" { 
+    inline = [
       "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",    
-      "export ACR_NAME = ${var.tap_acr_name}",
-      "export ACR_PASS = ${azurerm_container_registry.tap_acr.admin_password}",
-      "export ENVOY_IP_VIEW =${azurerm_public_ip.tap-full-pip.ip_address}",
+      "export ACR_NAME=${var.tap_acr_name}",
+      "export ACR_PASS=${local.acr_pass}",
+      "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-full-pip.ip_address}",
       "export DOMAIN_NAME_VIEW=${var.tap_full_dns_prefix}.$(echo $ENVOY_IP_VIEW | sed 's/\\./-/g').${var.domain_name}",
-      "export TAP_RG = ${azurerm_resource_group.tap_resource_group.name}",
+      "export TAP_RG=${azurerm_resource_group.tap_resource_group.name}",
       "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
       "sudo chown $USER:$USER certs/*",
       "chmod og-rwx certs/ca.key",
@@ -244,14 +271,8 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
       "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
       "cat tap-values.yaml",
+      "kubectl create ns tap-install",
       "./tap-install.sh ${var.tap_version} tap-values.yaml",  
-    ]     
-  }
-
-  # # Install full profile
-  provisioner "remote-exec" { 
-    inline = [
-      "ls",      
     ]
   }
 

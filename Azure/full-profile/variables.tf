@@ -138,7 +138,7 @@ variable "tap_full_min_node_count" {
 
 variable "tap_full_max_node_count" {
   description = "Maximum node count for full cluster"
-  default = 4
+  default = 5
 }
 
 variable "tap_full_aks_name" {
@@ -155,5 +155,5 @@ variable "tap_full_dns_prefix" {
 
 # Temp variable (to delete)
 variable "acr_pass" {
-  
+  description = "Temp password for DEBUGGING ACR (values should not be saved)"
 }
