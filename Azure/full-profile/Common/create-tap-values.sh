@@ -1,5 +1,5 @@
 #!/bin/bash
-cat <<EOF > tap-values.yaml
+cat <<EOF > $HOME/tap-values.yaml
 profile: full
 
 ceip_policy_disclosed: true

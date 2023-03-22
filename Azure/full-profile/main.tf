@@ -210,26 +210,27 @@ resource "azurerm_linux_virtual_machine" "main" {
       "rm -f tanzu-framework-*-amd64-*.tar",
       "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
       "sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",      
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
+      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
       "cd",      
     ]     
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
-      "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
-      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
-      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
-      "export PATH=$PATH:/usr/local/go/bin",
-      "git clone https://github.com/boltKrank/imgpkg.git",
-      "cd $HOME/imgpkg",
-      "$HOME/imgpkg/hack/build.sh",
-      "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
-      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
-      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
-      "cd",
-    ]
-  }
+  # imgpkg
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+  #     "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+  #     "export PATH=$PATH:/usr/local/go/bin",
+  #     "git clone https://github.com/boltKrank/imgpkg.git",
+  #     "cd $HOME/imgpkg",
+  #     "$HOME/imgpkg/hack/build.sh",
+  #     "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
+  #     "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
+  #     "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
+  #     "cd",
+  #   ]
+  # }
 
 
   # Cluster essentials
@@ -246,6 +247,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "az aks get-credentials --resource-group ${var.tap_full_aks_name} --name ${var.tap_full_aks_name} --admin --overwrite-existing",      
       "kubectl config get-contexts",
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
+      "kubectl create ns tap-install",      
       "./install.sh --yes",
     ]
   }
@@ -253,7 +255,9 @@ resource "azurerm_linux_virtual_machine" "main" {
   # # Install full profile
   provisioner "remote-exec" { 
     inline = [
-      "rm -f tanzu-cluster-essentials-*-amd64-*.tgz",    
+      "cd",
+      "mkdir overlays",         
+      "kubectl config use-context ${var.tap_full_aks_name}-admin",
       "export ACR_NAME=${var.tap_acr_name}",
       "export ACR_PASS=${local.acr_pass}",
       "export ENVOY_IP_VIEW=${azurerm_public_ip.tap-full-pip.ip_address}",
@@ -264,17 +268,20 @@ resource "azurerm_linux_virtual_machine" "main" {
       "chmod og-rwx certs/ca.key",
       "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",  
       "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
-      "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",
-      "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh",
-      "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh",
-      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
-      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
-      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
-      "cat tap-values.yaml",
-      "kubectl create ns tap-install",
-      "./tap-install.sh ${var.tap_version} tap-values.yaml",  
+      "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",  
+      "ls",
     ]
   }
+
+      # "cd",
+      # "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh create-tap-values.sh",
+      # "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh; ./create-tap-values.sh",
+      # "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
+      # "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
+      # "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
+      # "cat tap-values.yaml",    
+
+  # TODO "./tap-install.sh ${var.tap_version} tap-values.yaml",  
 
 }  
 

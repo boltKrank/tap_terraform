@@ -1,5 +1,5 @@
 #!/bin/bash
-cat <<EOF > overlays/contour-default-tls.yaml                                                                                                                                                                                                                          
+cat <<EOF > $HOME/overlays/contour-default-tls.yaml                                                                                                                                                                                                                          
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ namespace = data.values.namespace
