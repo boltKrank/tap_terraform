@@ -15,11 +15,11 @@ contour:
   infrastructure_provider: azure
   contour:
     configFileContents:
-      accesslog-format: json  
+      accesslog-format: json
   envoy:
     service:
       type: LoadBalancer
-      loadBalancerIP: ${ENVOY_IP_VIEW}      
+      loadBalancerIP: ${ENVOY_IP_VIEW}
       annotations:
          service.beta.kubernetes.io/azure-load-balancer-resource-group: ${TAP_RG}
 
@@ -42,8 +42,8 @@ appliveview:
 
 accelerator:
   ingress:
-    include: true    
-    enable_tls: true  
+    include: true
+    enable_tls: true
   tls:
     secret_name: tap-default-tls
     namespace: tanzu-system-ingress
