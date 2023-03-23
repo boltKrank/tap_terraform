@@ -7,9 +7,9 @@ ceip_policy_disclosed: true
 shared:
   ingress_domain: ${DOMAIN_NAME}
   image_registry:
-    project_path: ${ACR_NAME}.azurecr.io
-    username: admin
-    password: ${ACR_PASS}
+    project_path: "${ACR_NAME}.azurecr.io/tanzu-application-platform"
+    username: "${ACR_NAME}"
+    password: "${ACR_PASS}"
 
 contour:
   infrastructure_provider: azure
@@ -75,10 +75,6 @@ excluded_packages:
 - workshops.learningcenter.tanzu.vmware.com
 - eventing.tanzu.vmware.com
 - policy-controller policy.apps.tanzu.vmware.com
-
-
-excluded_packages:
-- learningcenter.tanzu.vmware.com
-- workshops.learningcenter.tanzu.vmware.com
 - api-portal.tanzu.vmware.com
+
 EOF

@@ -248,9 +248,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "kubectl config get-contexts",
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
       "kubectl create ns tap-install",    
+      "./install.sh --yes",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
-      "./install.sh --yes",
     ]
   }
 
@@ -277,7 +277,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh; ./create-tap-values.sh",
       "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml | kubectl apply -f- ",      
       "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f- ",
-      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f- ",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/cnrs-https.yaml | kubectl apply -f- ",
       "cat tap-values.yaml",    
       "cd",   
     ]
