@@ -1,4 +1,4 @@
-cat <<EOF > metadata-store-ingress-tls.yaml
+cat <<EOF > overlays/metadata-store-ingress-tls.yaml
 #@ load("@ytt:overlay", "overlay")
 #@overlay/match by=overlay.subset({"metadata":{"name":"metadata-store-ingress"}, "kind": "HTTPProxy"})
 ---

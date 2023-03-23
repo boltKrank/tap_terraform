@@ -1,4 +1,4 @@
-cat <<EOF > cnrs-slim.yaml
+cat <<EOF > overlays/cnrs-slim.yaml
 #@ load("@ytt:overlay", "overlay")
 #@overlay/match by=overlay.subset({"metadata":{"namespace":"knative-eventing"}}), expects="1+"
 #@overlay/remove

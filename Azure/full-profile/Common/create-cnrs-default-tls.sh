@@ -1,4 +1,4 @@
-cat <<EOF > cnrs-default-tls.yaml
+cat <<EOF > overlays/cnrs-default-tls.yaml
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ namespace = data.values.ingress.external.namespace
