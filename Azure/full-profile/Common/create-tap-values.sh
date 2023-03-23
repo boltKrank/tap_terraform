@@ -1,51 +1,66 @@
-#!/bin/bash
-cat <<EOF > $HOME/tap-values.yaml
+cat <<EOF > tap-values.yaml
 profile: full
 
 ceip_policy_disclosed: true
 
-shared:
-  ingress_domain: ${DOMAIN_NAME}
-  image_registry:
-    project_path: "${ACR_NAME}.azurecr.io/tanzu-application-platform"
-    username: "${ACR_NAME}"
-    password: "${ACR_PASS}"
+cnrs:
+  domain_name: ${DOMAIN_NAME}  
+  domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
+  default_tls_secret: tanzu-system-ingress/cnrs-default-tls
+
+buildservice:
+  kp_default_repository: ${ACR_SERVER}/build-service
+  kp_default_repository_username: ${ACR_USERNAME}
+  kp_default_repository_password: ${ACR_PASSWORD}
+
+supply_chain: basic
+
+ootb_supply_chain_basic:
+  registry:
+    server: ${ACR_SERVER}
+    repository: supply-chain
+  gitops:
+    ssh_secret: git-ssh
 
 contour:
   infrastructure_provider: azure
-  contour:
-    configFileContents:
-      accesslog-format: json
   envoy:
     service:
       type: LoadBalancer
-      loadBalancerIP: ${ENVOY_IP_VIEW}
+      externalTrafficPolicy: Local
       annotations:
-         service.beta.kubernetes.io/azure-load-balancer-resource-group: ${TAP_RG}
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-rg
 
 tap_gui:
+  ingressEnabled: true
+  ingressDomain: ${DOMAIN_NAME} 
   service_type: ClusterIP
   tls:
-    secretName: tap-default-tls
+    secretName: cnrs-default-tls
     namespace: tanzu-system-ingress
   app_config:
+    app:
+      baseUrl: https://tap-gui.${DOMAIN_NAME}
+    backend:
+      baseUrl: https://tap-gui.${DOMAIN_NAME}
+      cors:
+        origin: https://tap-gui.${DOMAIN_NAME}
     catalog:
       locations:
       - type: url
         target: https://github.com/sample-accelerators/tanzu-java-web-app/blob/main/catalog/catalog-info.yaml
-
-appliveview:
-  ingressEnabled: true
-  tls:
-    secretName: tap-default-tls
-    namespace: tanzu-system-ingress
+      - type: url
+        target: https://github.com/sample-accelerators/spring-petclinic/blob/accelerator/catalog/catalog-info.yaml
+      - type: url
+        target: https://github.com/tanzu-japan/spring-music/blob/tanzu/catalog/catalog-info.yaml
 
 accelerator:
+  domain: ${DOMAIN_NAME}  
   ingress:
     include: true
     enable_tls: true
   tls:
-    secret_name: tap-default-tls
+    secret_name: cnrs-default-tls
     namespace: tanzu-system-ingress
   server:
     service_type: ClusterIP
@@ -53,6 +68,7 @@ accelerator:
 metadata_store:
   app_service_type: ClusterIP
   ingress_enabled: "true"
+  ingress_domain: ${DOMAIN_NAME}
 
 scanning:
   metadataStore:
@@ -65,6 +81,7 @@ package_overlays:
 - name: cnrs
   secrets:
   - name: cnrs-default-tls
+  - name: cnrs-slim
 - name: metadata-store
   secrets:
   - name: metadata-store-ingress-tls
@@ -73,8 +90,4 @@ excluded_packages:
 - grype.scanning.apps.tanzu.vmware.com
 - learningcenter.tanzu.vmware.com
 - workshops.learningcenter.tanzu.vmware.com
-- eventing.tanzu.vmware.com
-- policy-controller policy.apps.tanzu.vmware.com
-- api-portal.tanzu.vmware.com
-
 EOF
