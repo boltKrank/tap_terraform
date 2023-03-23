@@ -35,13 +35,13 @@ resource "azurerm_subnet" "internal" {
 
 # # # # Create ACR
 
-# resource "azurerm_container_registry" "tap_acr" {
-#   name                = var.tap_acr_name
-#   resource_group_name = azurerm_resource_group.tap_resource_group.name
-#   location            = azurerm_resource_group.tap_resource_group.location
-#   sku                 = "Standard"
-#   admin_enabled       = true  
-# }
+resource "azurerm_container_registry" "tap_acr" {
+  name                = var.tap_acr_name
+  resource_group_name = azurerm_resource_group.tap_resource_group.name
+  location            = azurerm_resource_group.tap_resource_group.location
+  sku                 = "Standard"
+  admin_enabled       = true  
+}
 
 # Non DEBUG
 # locals {
@@ -50,8 +50,8 @@ resource "azurerm_subnet" "internal" {
 
 # To DEBUG output
 locals {
-  # acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)  
-  acr_pass = var.acr_pass
+  acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)  
+  # acr_pass = var.acr_pass
 }
 
 # TAP full START
@@ -217,20 +217,20 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   # imgpkg
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
-  #     "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
-  #     "export PATH=$PATH:/usr/local/go/bin",
-  #     "git clone https://github.com/boltKrank/imgpkg.git",
-  #     "cd $HOME/imgpkg",
-  #     "$HOME/imgpkg/hack/build.sh",
-  #     "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
-  #     "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
-  #     "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
-  #     "cd",
-  #   ]
-  # }
+  provisioner "remote-exec" {
+    inline = [
+      "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
+      "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
+      "export PATH=$PATH:/usr/local/go/bin",
+      "git clone https://github.com/boltKrank/imgpkg.git",
+      "cd $HOME/imgpkg",
+      "$HOME/imgpkg/hack/build.sh",
+      "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
+      "cd",
+    ]
+  }
 
 
   # Cluster essentials
@@ -247,7 +247,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "az aks get-credentials --resource-group ${var.tap_full_aks_name} --name ${var.tap_full_aks_name} --admin --overwrite-existing",      
       "kubectl config get-contexts",
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
-      "kubectl create ns tap-install",      
+      "kubectl create ns tap-install",    
+      "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
       "./install.sh --yes",
     ]
   }
@@ -256,7 +258,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   provisioner "remote-exec" { 
     inline = [
       "cd",
-      "mkdir overlays",         
+      "mkdir -p overlays",         
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
       "export ACR_NAME=${var.tap_acr_name}",
       "export ACR_PASS=${local.acr_pass}",
@@ -273,16 +275,23 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cd",
       "chmod 755 create-contour-default-tls.sh create-cnrs-default-tls.sh create-metadata-store-client.sh create-metadata-store-client.sh tap-install.sh create-tap-values.sh",
       "./create-contour-default-tls.sh; ./create-metadata-store-client.sh; ./create-cnrs-default-tls.sh; ./create-tap-values.sh",
-      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml kubectl apply -f-",      
-      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f-",
-      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f-",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml | kubectl apply -f- ",      
+      "kubectl -n tap-install create secret generic metadata-store-read-only-client -o yaml --dry-run=client --from-file=overlays/metadata-store-read-only-client.yaml  | kubectl apply -f- ",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/run/cnrs-https.yaml | kubectl apply -f- ",
       "cat tap-values.yaml",    
+      "cd",   
     ]
   }
 
 
 
   # TODO "./tap-install.sh ${var.tap_version} tap-values.yaml",  
+
+      # "chmod 755 tap-install.sh; ./tap-install.sh ${var.tap_version} tap-values.yaml",   
+      # "kubectl get packageinstall -n tap-install",
+      # "sed -i.bak \"s/CHANGEME/$(kubectl get secret -n metadata-store metadata-store-read-client -otemplate='{{.data.token | base64decode}}')/\" tap-values-view.yaml",
+      # "tanzu package installed update -n tap-install tap -f tap-values-view.yaml --poll-timeout 20m",
+      # "kubectl get httpproxy -A",   
 
 }  
 
