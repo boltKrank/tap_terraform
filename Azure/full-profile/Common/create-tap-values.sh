@@ -1,39 +1,44 @@
 cat <<EOF > tap-values.yaml
 profile: full
 
+shared:
+  ingress_domain: ${DOMAIN_NAME}
+  ca_cert_data: |
+$(cat tls-cert-sed.txt)
+  image_registry:
+    project_path: "${ACR_NAME}.azurecr.io/tanzu-application-platform"
+    secret:
+      name: repository-secret
+      namespace: tap-install
+
 ceip_policy_disclosed: true
 
 cnrs:
-  domain_name: ${DOMAIN_NAME}  
   domain_template: "{{.Name}}-{{.Namespace}}.{{.Domain}}"
-  default_tls_secret: tanzu-system-ingress/cnrs-default-tls
+  default_tls_secret: tanzu-system-ingress/tap-default-tls
 
-buildservice:
-  kp_default_repository: ${ACR_SERVER}/build-service
-  kp_default_repository_username: ${ACR_USERNAME}
-  kp_default_repository_password: ${ACR_PASSWORD}
+buildservice: 
+  exclude_dependencies: true
 
-supply_chain: basic
+supply_chain: testing_scanning
 
-ootb_supply_chain_basic:
-  registry:
-    server: ${ACR_SERVER}
-    repository: supply-chain
-  gitops:
-    ssh_secret: git-ssh
+scanning:
+  metadataStore:
+    url: ""
 
 contour:
   infrastructure_provider: azure
+  contour:
+    configFileContents:
+      accesslog-format: json  
   envoy:
     service:
       type: LoadBalancer
-      externalTrafficPolicy: Local
+      loadBalancerIP: ${ENVOY_IP}      
       annotations:
-        service.beta.kubernetes.io/azure-load-balancer-resource-group: tap-rg
+        service.beta.kubernetes.io/azure-load-balancer-resource-group: ${TAP_RG}
 
 tap_gui:
-  ingressEnabled: true
-  ingressDomain: ${DOMAIN_NAME} 
   service_type: ClusterIP
   tls:
     secretName: cnrs-default-tls
@@ -55,20 +60,21 @@ tap_gui:
         target: https://github.com/tanzu-japan/spring-music/blob/tanzu/catalog/catalog-info.yaml
 
 accelerator:
-  domain: ${DOMAIN_NAME}  
   ingress:
-    include: true
-    enable_tls: true
+    include: true    
+    enable_tls: true  
   tls:
-    secret_name: cnrs-default-tls
+    secret_name: tap-default-tls
     namespace: tanzu-system-ingress
-  server:
-    service_type: ClusterIP
+
+appliveview:
+  ingressEnabled: true
+    tls:
+      secretName: tap-default-tls
+      namespace: tanzu-system-ingress
 
 metadata_store:
-  app_service_type: ClusterIP
-  ingress_enabled: "true"
-  ingress_domain: ${DOMAIN_NAME}
+  ns_for_export_app_cert: "*"
 
 scanning:
   metadataStore:
@@ -77,11 +83,10 @@ scanning:
 package_overlays:
 - name: contour
   secrets:
-  - name: contour-loadbalancer-ip
+  - name: contour-default-tls
 - name: cnrs
   secrets:
-  - name: cnrs-default-tls
-  - name: cnrs-slim
+  - name: cnrs-https
 - name: metadata-store
   secrets:
   - name: metadata-store-ingress-tls

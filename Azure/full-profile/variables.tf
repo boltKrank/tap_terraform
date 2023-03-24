@@ -79,7 +79,7 @@ variable "tap_version" {
 
 variable "tbs_version" {
   description = "The version of Tanzu Build Service to install"
-  default = "1.9.0"
+  default = "1.9.4"
 }
 
 variable "pivnet_version" {

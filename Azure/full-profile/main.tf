@@ -228,6 +228,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "sudo cp $HOME/imgpkg/imgpkg /usr/local/bin/imgpkg",    
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-cluster-essentials/cluster-essentials-bundle:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-cluster-essentials/cluster-essentials-bundle --include-non-distributable-layers",
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
+      "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo --include-non-distributable-layers",             
       "cd",
     ]
   }
@@ -251,12 +252,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
-    ]
-  }
-
-  # # Install full profile
-  provisioner "remote-exec" { 
-    inline = [
+      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",   
       "cd",
       "mkdir -p overlays",         
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
@@ -267,12 +263,18 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export DOMAIN_NAME=${var.tap_full_dns_prefix}.$(echo $ENVOY_IP | sed 's/\\./-/g').${var.domain_name}",
       "export TAP_RG=${azurerm_resource_group.tap_resource_group.name}",
       "cd",
-      "chmod 755 create-contour-load-balancer.sh create-cnrs-default-tls.sh create-cnrs-slim.sh create-metadata-store-ingress-tls.sh create-tap-values.sh tap-install.sh",
-      "./create-contour-load-balancer.sh; ./create-cnrs-default-tls.sh; ./create-cnrs-slim.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh",
+      "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
+      "sudo chown $USER:$USER certs/*",
+      "chmod og-rwx certs/ca.key",
+      "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",  
+      "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
+      "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",  
+      "ls",
+      "chmod 755 create-contour-load-balancer.sh create-cnrs-https.sh create-cnrs-slim.sh create-metadata-store-ingress-tls.sh create-tap-values.sh tap-install.sh",
+      "./create-contour-load-balancer.sh; ./create-cnrs-https.sh; ./create-cnrs-slim.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh",
       "kubectl -n tap-install create secret generic contour-loadbalancer-ip -o yaml --dry-run=client --from-file=overlays/contour-loadbalancer-ip.yaml | kubectl apply -f- ",      
       "kubectl -n tap-install create secret generic metadata-store-ingress-tls -o yaml --dry-run=client --from-file=overlays/metadata-store-ingress-tls.yaml  | kubectl apply -f- ",
-      "kubectl -n tap-install create secret generic cnrs-default-tls -o yaml --dry-run=client --from-file=overlays/cnrs-default-tls.yaml | kubectl apply -f- ",
-      "kubectl -n tap-install create secret generic cnrs-slim -o yaml --dry-run=client --from-file=overlays/cnrs-slim.yaml | kubectl apply -f- ",
+      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/cnrs-https.yaml | kubectl apply -f- ",
       "cat tap-values.yaml",    
       "cd",   
     ]
@@ -280,13 +282,7 @@ resource "azurerm_linux_virtual_machine" "main" {
 
 
   # TODO Cert creation
-      #   "docker run --rm -v $PWD/certs:/certs hitch openssl req -new -nodes -out /certs/ca.csr -keyout /certs/ca.key -subj \"/CN=default-ca/O=TAP/C=AU\"",
-      # "sudo chown $USER:$USER certs/*",
-      # "chmod og-rwx certs/ca.key",
-      # "docker run --rm -v $PWD/certs:/certs hitch openssl x509 -req -in /certs/ca.csr -days 3650 -extfile /etc/ssl/openssl.cnf -extensions v3_ca -signkey /certs/ca.key -out /certs/ca.crt",  
-      # "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
-      # "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",  
-      # "ls",
+
 
   # TODO "./tap-install.sh ${var.tap_version} tap-values.yaml",  
 
