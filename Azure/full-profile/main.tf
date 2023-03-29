@@ -35,13 +35,13 @@ resource "azurerm_subnet" "internal" {
 
 # # # # Create ACR
 
-resource "azurerm_container_registry" "tap_acr" {
-  name                = var.tap_acr_name
-  resource_group_name = azurerm_resource_group.tap_resource_group.name
-  location            = azurerm_resource_group.tap_resource_group.location
-  sku                 = "Standard"
-  admin_enabled       = true  
-}
+# resource "azurerm_container_registry" "tap_acr" {
+#   name                = var.tap_acr_name
+#   resource_group_name = azurerm_resource_group.tap_resource_group.name
+#   location            = azurerm_resource_group.tap_resource_group.location
+#   sku                 = "Standard"
+#   admin_enabled       = true  
+# }
 
 # Non DEBUG
 # locals {
@@ -50,8 +50,8 @@ resource "azurerm_container_registry" "tap_acr" {
 
 # To DEBUG output
 locals {
-  acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)  
-  # acr_pass = var.acr_pass
+  # acr_pass = nonsensitive(azurerm_container_registry.tap_acr.admin_password)  
+  acr_pass = var.acr_pass
 }
 
 # TAP full START
@@ -242,6 +242,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "tanzu package repository get tanzu-tap-repository --namespace tap-install",
       "tanzu package repository add tbs-full-deps-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",   
       "tanzu package repository get tbs-full-deps-repository --namespace tap-install",
+      "tanzu package available list --namespace tap-install",
       "cd",
       "mkdir -p overlays",         
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
@@ -269,6 +270,7 @@ resource "azurerm_linux_virtual_machine" "main" {
     ]
   }
 
+  # tanzu package install tap -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file tap-values.yaml -n tap-install
 
   # TODO Cert creation
 
