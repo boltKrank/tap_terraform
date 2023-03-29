@@ -1,5 +1,5 @@
 #!/bin/bash
-cat <<EOF > overlays/view/contour-default-tls.yaml                                                                                                                                                                                                                          
+cat <<EOF > overlays/contour-default-tls.yaml                                                                                                                                                                                                                          
 #@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ namespace = data.values.namespace
@@ -32,7 +32,7 @@ metadata:
   namespace: #@ namespace
 spec:
   dnsNames:
-  - #@ "*.${DOMAIN_NAME_VIEW}"
+  - #@ "*.${DOMAIN_NAME}"
   issuerRef:
     kind: Issuer
     name: default-ca-issuer

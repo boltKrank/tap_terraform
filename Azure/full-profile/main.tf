@@ -213,12 +213,6 @@ resource "azurerm_linux_virtual_machine" "main" {
       "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name} -p ${local.acr_pass}",
       "docker login ${var.tanzu_registry_hostname} -u ${var.tanzu_registry_username} -p ${var.tanzu_registry_password}",  
       "cd",      
-    ]     
-  }
-
-  # imgpkg
-  provisioner "remote-exec" {
-    inline = [
       "wget https://go.dev/dl/go1.20.1.linux-amd64.tar.gz",
       "sudo tar -C /usr/local -xzf go1.20.1.linux-amd64.tar.gz",
       "export PATH=$PATH:/usr/local/go/bin",
@@ -230,13 +224,6 @@ resource "azurerm_linux_virtual_machine" "main" {
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",             
       "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo --include-non-distributable-layers",             
       "cd",
-    ]
-  }
-
-
-  # Cluster essentials
-  provisioner "remote-exec" {
-    inline = [
       "pivnet download-product-files --product-slug='tanzu-cluster-essentials' --release-version='${var.tap_version}' --glob='tanzu-cluster-essentials-linux-amd64-*'",
       "mkdir tanzu-cluster-essentials",
       "tar xzvf tanzu-cluster-essentials-*-amd64-*.tgz -C tanzu-cluster-essentials",
@@ -252,7 +239,7 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./install.sh --yes",
       "tanzu secret registry add tap-registry --username \"${var.tap_acr_name}\" --password \"${local.acr_pass}\" --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",   
-      "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",   
+      "tanzu package repository add tanzu-tbs-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --namespace tap-install",   
       "cd",
       "mkdir -p overlays",         
       "kubectl config use-context ${var.tap_full_aks_name}-admin",
@@ -270,9 +257,9 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cat certs/ca.crt | sed 's/^/    /g' > tls-cert-sed.txt",
       "cat certs/ca.key | sed 's/^/    /g' > tls-key-sed.txt",  
       "ls",
-      "chmod 755 create-contour-load-balancer.sh create-cnrs-https.sh create-cnrs-slim.sh create-metadata-store-ingress-tls.sh create-tap-values.sh tap-install.sh",
-      "./create-contour-load-balancer.sh; ./create-cnrs-https.sh; ./create-cnrs-slim.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh",
-      "kubectl -n tap-install create secret generic contour-loadbalancer-ip -o yaml --dry-run=client --from-file=overlays/contour-loadbalancer-ip.yaml | kubectl apply -f- ",      
+      "chmod 755 create-contour-default-tls.sh create-cnrs-https.sh create-cnrs-slim.sh create-metadata-store-ingress-tls.sh create-tap-values.sh tap-install.sh",
+      "./create-contour-default-tls.sh; ./create-cnrs-https.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh",
+      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml | kubectl apply -f- ",      
       "kubectl -n tap-install create secret generic metadata-store-ingress-tls -o yaml --dry-run=client --from-file=overlays/metadata-store-ingress-tls.yaml  | kubectl apply -f- ",
       "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/cnrs-https.yaml | kubectl apply -f- ",
       "cat tap-values.yaml",    
