@@ -15,6 +15,12 @@ ceip_policy_disclosed: true
 
 profile: full # Can take iterate, build, run, view.
 
+buildservice: 
+  kp_default_repository: "siandersontap.azurecr.io/build-service
+  kp_default_repository_secret:
+    name: kp-default-repository-creds
+    namespace: tap-install
+
 supply_chain: basic # Can take testing, testing_scanning.
 
 ootb_supply_chain_basic: # Based on supply_chain set above, can be changed to ootb_supply_chain_testing, ootb_supply_chain_testing_scanning.
@@ -25,9 +31,6 @@ contour:
   envoy:
     service:
       type: LoadBalancer # This is set by default, but can be overridden by setting a different value.
-
-buildservice:
-  exclude_dependencies: true
 
 tap_gui:
   service_type: ClusterIP # If the shared.ingress_domain is set as above, this must be set to ClusterIP.
