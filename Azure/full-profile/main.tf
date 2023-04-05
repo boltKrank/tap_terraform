@@ -252,17 +252,20 @@ resource "azurerm_linux_virtual_machine" "main" {
       "ls",
       "chmod 755 create-contour-default-tls.sh create-cnrs-https.sh create-cnrs-slim.sh create-metadata-store-ingress-tls.sh create-tap-values.sh create-tap-values-full.sh tap-install.sh",
       "./create-contour-default-tls.sh; ./create-cnrs-https.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh; ./create-tap-values-full.sh",
-      "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml | kubectl apply -f- ",      
-      "kubectl -n tap-install create secret generic metadata-store-ingress-tls -o yaml --dry-run=client --from-file=overlays/metadata-store-ingress-tls.yaml  | kubectl apply -f- ",
-      "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/cnrs-https.yaml | kubectl apply -f- ",
       "cat tap-values.yaml",    
       "cat tap-values-full.yaml",
-      "cd",        
-      "kubectl get service envoy -n tanzu-system-ingress",
+      "cd",              
     ]
   }
 
   # tanzu package install tap -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file tap-values.yaml -n tap-install
+
+  # Secrets:
+
+      # "kubectl -n tap-install create secret generic contour-default-tls -o yaml --dry-run=client --from-file=overlays/contour-default-tls.yaml | kubectl apply -f- ",      
+      # "kubectl -n tap-install create secret generic metadata-store-ingress-tls -o yaml --dry-run=client --from-file=overlays/metadata-store-ingress-tls.yaml  | kubectl apply -f- ",
+      # "kubectl -n tap-install create secret generic cnrs-https -o yaml --dry-run=client --from-file=overlays/cnrs-https.yaml | kubectl apply -f- ",
+      # "kubectl get service envoy -n tanzu-system-ingress",
 
   #  "kubectl get httpproxy -A"
 

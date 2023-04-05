@@ -1,0 +1,18 @@
+# https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.4/tap/install.html (2023-04-02)
+
+shared:
+  ingress_domain: "INGRESS-DOMAIN"
+  
+  image_registry:
+    project_path: "SERVER-NAME/REPO-NAME"
+    username: "KP-DEFAULT-REPO-USERNAME"
+    password: "KP-DEFAULT-REPO-PASSWORD"
+
+  kubernetes_version: "K8S-VERSION"
+
+  ca_cert_data: | # To be passed if using custom certificates.
+      -----BEGIN CERTIFICATE-----
+      MIIFXzCCA0egAwIBAgIJAJYm37SFocjlMA0GCSqGSIb3DQEBDQUAMEY...
+      -----END CERTIFICATE-----
+
+ceip_policy_disclosed: FALSE-OR-TRUE-VALUE # Installation fails if this is not set to true. Not a string.
