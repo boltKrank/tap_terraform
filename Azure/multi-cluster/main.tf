@@ -484,4 +484,18 @@ resource "azurerm_linux_virtual_machine" "main" {
       # "imgpkg copy -b ${var.tanzu_registry_hostname}/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages --include-non-distributable-layers",
       
 
- 
+ # LETS ENCRYPT DOCKER CONTAINER:
+
+#  usr/local/bin/docker run -it --rm --name certbot \
+# -v "/home/vmware/letsencrypt/etc:/etc/letsencrypt" \
+# -v "/home/vmware/letsencrypt/var/lib:/var/lib/letsencrypt" \
+# -v "/home/vmware/letsencrypt/cloudflare:/tmp/letsencrypt" \
+# certbot/dns-cloudflare:arm64v8-latest certonly \
+# --dns-cloudflare \
+# --dns-cloudflare-credentials /tmp/letsencrypt/cloudflare.ini \
+# --dns-cloudflare-propagation-seconds 30 \
+# --server https://acme-v02.api.letsencrypt.org/directory \
+# -d "*.vchan.hk" -d "vchan.hk";
+
+
+
