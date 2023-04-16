@@ -72,6 +72,11 @@ variable "tanzu_registry_password" {
   description = "Password for Tanzu registry"
 }
 
+variable "cluster_essentials_version" {
+  description = "The version of cluster essentials to install"
+  default = "1.4.1"
+}
+
 variable "tap_version" {
   description = "The version of TAP to install"
   default = "1.4.0"
