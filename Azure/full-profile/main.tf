@@ -254,10 +254,11 @@ resource "azurerm_linux_virtual_machine" "main" {
       "./create-contour-default-tls.sh; ./create-cnrs-https.sh; ./create-metadata-store-ingress-tls.sh; ./create-tap-values.sh; ./create-tap-values-full.sh",
       "cat tap-values.yaml",    
       "cat tap-values-full.yaml",
-      "cd", 
-      "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values.yaml -n tap-install",
+      "cd",      
     ]
   }
+
+  #  "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values.yaml -n tap-install",
 
   # tanzu package install tap -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file tap-values.yaml -n tap-install
 
