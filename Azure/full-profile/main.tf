@@ -250,10 +250,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   #   ]
   # }
 
-  # "imgpkg copy -b registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:${var.tap_version} --to-repo ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages",
-  # imgpkg copy -b registry.tanzu.vmware.com/tanzu-application-platform/full-tbs-deps-package-repo:${var.tbs_version} --to-repo ${var.tap_acr_name}.azurecr.io/tbs-full-deps
-
-
+  
   # Add the package repository
   provisioner "remote-exec" {
     inline = [
@@ -261,35 +258,53 @@ resource "azurerm_linux_virtual_machine" "main" {
       "export INSTALL_REGISTRY_PASSWORD=${local.acr_pass}",
       "export INSTALL_REGISTRY_HOSTNAME=${var.tap_acr_name}.azurecr.io",
       "export TAP_VERSION=${var.tap_version}",      
-      "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${local.acr_pass} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",
-      "tanzu secret registry add registry-credentials --server ${var.tap_acr_name}.azurecr.io --username ${var.tap_acr_name} --password ${local.acr_pass} --export-to-all-namespaces --yes",      
+      "tanzu secret registry add tap-registry --username ${var.tap_acr_name} --password ${local.acr_pass} --server ${var.tap_acr_name}.azurecr.io --export-to-all-namespaces --yes --namespace tap-install",      
       "tanzu package repository add tanzu-tap-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tap-packages:${var.tap_version} --namespace tap-install",
       "tanzu package repository add tbs-full-deps-repository --url ${var.tap_acr_name}.azurecr.io/tanzu-application-platform/tbs-full-deps:${var.tbs_version}--namespace tap-install",
       "tanzu package repository get tanzu-tap-repository --namespace tap-install",
       "tanzu package available list --namespace tap-install",
     ]
   }
-}  
 
   # Seperate shell so user inherits the groupadd in the following shell to run docker as non-root
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "curl -fsSL https://get.docker.com -o get-docker.sh",
-  #     "sudo sh get-docker.sh",
-  #     "sudo groupadd docker",
-  #     "sudo usermod -aG docker $USER",
-  #     "echo 'END DOCKER INSTALL'",
-  #   ]
-  # }
+  provisioner "remote-exec" {
+    inline = [
+      "curl -fsSL https://get.docker.com -o get-docker.sh",
+      "sudo sh get-docker.sh",
+      "sudo groupadd docker",
+      "sudo usermod -aG docker $USER",
+      "echo 'END DOCKER INSTALL'",
+    ]
+  }
 
+  # Create dev namespace and add registry credentials to it
+  provisioner "remote-exec" {
+    inline = [
+      "docker login ${var.tap_acr_name}.azurecr.io -u ${var.tap_acr_name}  -p ${local.acr_pass}",
+      "kubectl create ns ${var.developer_namespace}",
+      "tanzu secret registry add registry-credentials --server ${var.tap_acr_name}.azurecr.io --username ${var.tap_acr_name} --password ${local.acr_pass} --namespace ${var.developer_namespace}",  
+      "kubectl get secret registry-credentials  -o jsonpath='{.data.\\.dockerconfigjson}'  -n ${var.developer_namespace}| base64 --decode",      
+    ]
+  }
 
   # install TAP
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "export TAP_VERSION=${var.tap_version}",    
-  #     "tanzu package install tap -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file tap-values.yaml -n tap-install",
-  #   ]
-  # }
+  provisioner "remote-exec" {
+    inline = [
+      "cd",
+      "cp $HOME/scripts/create-tap-values-azure.sh $HOME",
+      "chmod 755 create-tap-values-azure.sh; ./create-tap-values-azure.sh ${var.developer_namespace} ${var.tap_acr_name}",
+      "cat tap-values-azure.yaml",      
+    ]
+  }
+
+  # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-azure.yaml -n tap-install",
+
+}  
+
+
+
+
+
 
 
   # TODO: https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.5/tap/install-online-profile.html

@@ -157,6 +157,10 @@ variable "tap_full_dns_prefix" {
   default = "full"
 }
 
+variable "developer_namespace" {
+  description = "name of the default developer namespace"
+  default = "dev-ns"
+}
 
 # Temp variable (to delete)
 variable "acr_pass" {
