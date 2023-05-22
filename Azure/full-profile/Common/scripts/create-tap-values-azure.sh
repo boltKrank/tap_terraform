@@ -3,10 +3,10 @@ profile: full
 ceip_policy_disclosed: true # Installation fails if this is set to 'false'
 buildservice:
   kp_default_repository: tapbuildservice.azurecr.io/buildservice
+  exclude_dependencies: true
   kp_default_repository_secret:
     name: registry-credentials
     namespace: $1
-  enable_automatic_dependency_updates: false
 
 supply_chain: testing_scanning
 
@@ -16,7 +16,7 @@ ootb_templates:
 ootb_supply_chain_testing:
   registry:
     server: $2.azurecr.io
-    repository:tapsupplychain
+    repository: tapsupplychain
   gitops:
     ssh_secret: ""
 
@@ -56,7 +56,7 @@ metadata_store:
   ingressEnabled: true
   ingressDomain: tap.com
   app_service_type: ClusterIP
-  ns_for_export_app_cert: tap-workload
+  ns_for_export_app_cert: $1
 
 contour:
   envoy:
@@ -72,7 +72,7 @@ cnrs:
   domain_name: tap.com
 
 grype:
-  namespace: tap-workload
+  namespace: $1
   targetImagePullSecret: registry-credentials
 
 EOF

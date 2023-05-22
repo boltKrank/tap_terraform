@@ -294,10 +294,15 @@ resource "azurerm_linux_virtual_machine" "main" {
       "cp $HOME/scripts/create-tap-values-azure.sh $HOME",
       "chmod 755 create-tap-values-azure.sh; ./create-tap-values-azure.sh ${var.developer_namespace} ${var.tap_acr_name}",
       "cat tap-values-azure.yaml",      
+      "cp $HOME/scripts/create-sa-account.sh $HOME",
+      "cd",
+      "chmod 755 create-sa-account.sh; ./create-sa-account.sh ${var.developer_namespace}",
     ]
   }
 
   # "tanzu package install tap -p tap.tanzu.vmware.com -v ${var.tap_version} --values-file tap-values-azure.yaml -n tap-install",
+  # "tanzu package install full-tbs-deps -p full-tbs-deps.tanzu.vmware.com -v ${var.tbs_version} -n tap-install",
+  # "echo 'TAP-GUI-IP:'; kubectl get svc -n tap-gui",
 
 }  
 
